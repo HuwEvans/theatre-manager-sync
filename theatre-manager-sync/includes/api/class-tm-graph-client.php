@@ -129,15 +129,7 @@ class TM_Graph_Client {
 
         // Build endpoint with expand=fields to get all fields
         // SharePoint's Graph API returns fields when we use expand=fields
-        // For Testimonials list specifically, we request all fields with no filtering
-        if ($list_name === 'Testimonials') {
-            // Use expand=fields without $select to get all fields from the list
-            // Some SharePoint number fields need to be fetched this way
-            $endpoint = "sites/{$this->site_id}/lists/{$list_id}/items?expand=fields";
-            error_log('[TM_Graph_Client] Using Testimonials endpoint: fetching all fields');
-        } else {
-            $endpoint = "sites/{$this->site_id}/lists/{$list_id}/items?expand=fields";
-        }
+        $endpoint = "sites/{$this->site_id}/lists/{$list_id}/items?expand=fields";
         
         error_log('[TM_Graph_Client] Using endpoint: ' . $endpoint);
         $data = $this->request($endpoint);
