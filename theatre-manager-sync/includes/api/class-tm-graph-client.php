@@ -134,16 +134,26 @@ class TM_Graph_Client {
         // SharePoint's Graph API requires explicit field names in the select parameter
         $fields = $this->get_fields_for_list($list_name);
         
-        // Build the field list - urlencode field names that have special characters
+        // Build field list - construct the $select parameter properly
+        // Individual field names may be URL-encoded (e.g., '3-upFront' for field names with special chars)
         $field_list = implode(',', array_map('urlencode', $fields));
         
-        // Build endpoint - expand=fields with explicit $select of field names
-        // Important: Don't urlencode the entire expand parameter, just individual field names
-        // Format: expand=fields($select=field1,field2,field3)
-        $endpoint = "sites/{$this->site_id}/lists/{$list_id}/items?expand=fields(\$select=" . $field_list . ")";
+        // Build the expand=fields($select=...) parameter
+        // We need to properly construct this as a query parameter
+        // The expand parameter itself is: fields($select=field1,field2,field3)
+        // When used in a URL query string, this DOES need to be URL-encoded
+        $expand_value = 'fields($select=' . $field_list . ')';
+        
+        // URL encode the expand parameter value
+        $expand_encoded = urlencode($expand_value);
+        
+        // Build the final endpoint
+        $endpoint = "sites/{$this->site_id}/lists/{$list_id}/items?expand=" . $expand_encoded;
         
         error_log('[TM_Graph_Client] Using endpoint with fields: ' . $list_name);
         error_log('[TM_Graph_Client] Requesting fields: ' . implode(', ', $fields));
+        error_log('[TM_Graph_Client] Expand parameter (raw): ' . $expand_value);
+        error_log('[TM_Graph_Client] Expand parameter (encoded): ' . $expand_encoded);
         error_log('[TM_Graph_Client] Full endpoint: ' . $endpoint);
         
         $data = $this->request($endpoint);
