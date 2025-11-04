@@ -30,9 +30,11 @@ class TM_Graph_Client {
             return null;
         }
 
+        $url = "https://graph.microsoft.com/v1.0/$endpoint";
         error_log('[TM_Graph_Client] Making request to: ' . $endpoint);
+        error_log('[TM_Graph_Client] Full URL: ' . $url);
 
-        $response = wp_remote_get("https://graph.microsoft.com/v1.0/$endpoint", [
+        $response = wp_remote_get($url, [
             'headers' => [
                 'Authorization' => "Bearer {$token}",
                 'Accept' => 'application/json'
@@ -54,6 +56,7 @@ class TM_Graph_Client {
 
         $data = json_decode($body, true);
         error_log('[TM_Graph_Client] Request succeeded, response type: ' . gettype($data));
+        error_log('[TM_Graph_Client] Response value count: ' . (isset($data['value']) ? count($data['value']) : 'N/A'));
         return $data;
     }
 
@@ -170,6 +173,13 @@ class TM_Graph_Client {
         
         error_log('[TM_Graph_Client] Found ' . count($lists['value']) . ' lists in SharePoint');
         
+        // Log all available lists for debugging
+        $available_lists = [];
+        foreach ($lists['value'] ?? [] as $list) {
+            $available_lists[] = $list['name'];
+        }
+        error_log('[TM_Graph_Client] Available lists: ' . implode(', ', $available_lists));
+        
         foreach ($lists['value'] ?? [] as $list) {
             if ($list['name'] === $list_name) {
                 error_log('[TM_Graph_Client] Found matching list: ' . $list['id']);
@@ -178,6 +188,8 @@ class TM_Graph_Client {
         }
         
         error_log('[TM_Graph_Client] List name not found in SharePoint: ' . $list_name);
+        // Log a suggestion of what was found
+        error_log('[TM_Graph_Client] Searched for: "' . $list_name . '", but lists are: ' . implode(', ', $available_lists));
         return null;
     }
 
