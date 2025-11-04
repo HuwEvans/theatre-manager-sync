@@ -5,6 +5,7 @@ tm_sync_log('INFO','Generic-Image-Sync File loading');
 /**
  * Find attachment by filename in WordPress media library
  * Searches global media library to detect orphaned attachments from deleted posts
+ * Performs case-insensitive search to handle old uploads and file name variations
  * 
  * @param string $filename File name to search for (original SharePoint filename)
  * @param string $image_type Type of image for logging (e.g., "photo", "logo")
@@ -18,42 +19,105 @@ function tm_sync_find_attachment_by_filename($filename, $image_type = 'image') {
     }
     
     $clean_filename = basename($filename);
+    $filename_no_ext = pathinfo($clean_filename, PATHINFO_FILENAME);
+    $extension = strtolower(pathinfo($clean_filename, PATHINFO_EXTENSION));
+    
+    tm_sync_log('debug', "Searching for orphaned $image_type attachment", [
+        'search_filename' => $clean_filename,
+        'base_name' => $filename_no_ext,
+        'extension' => $extension
+    ]);
     
     // Search attachments by checking their file paths
-    // This is more efficient than loading all attachments into PHP
+    // Case-insensitive search for: filename.ext, FILENAME.EXT, FileName.ext, etc.
+    // Also searches for files with prefixes like "photo-9-filename.ext"
     $results = $wpdb->get_results($wpdb->prepare(
         "SELECT p.ID, pm.meta_value
          FROM {$wpdb->posts} p
          INNER JOIN {$wpdb->postmeta} pm ON p.ID = pm.post_id
          WHERE p.post_type = 'attachment'
          AND pm.meta_key = '_wp_attached_file'
-         AND pm.meta_value LIKE %s
-         LIMIT 10",
-        '%' . $clean_filename
+         AND (
+            pm.meta_value LIKE %s
+            OR pm.meta_value LIKE %s
+            OR pm.meta_value LIKE %s
+         )
+         LIMIT 50",
+        '%' . $clean_filename,
+        '%' . strtoupper($clean_filename),
+        '%' . strtolower($clean_filename)
     ));
     
     if (empty($results)) {
+        tm_sync_log('debug', "No attachments found with filename", [
+            'search_filename' => $clean_filename
+        ]);
         return null;
     }
     
-    // Check each result for filename match
+    tm_sync_log('debug', "Found " . count($results) . " potential matches for $image_type", [
+        'search_filename' => $clean_filename
+    ]);
+    
+    // Check each result for filename match (prefer higher ID = more recent)
+    $candidates = [];
     foreach ($results as $row) {
         $attached_file = $row->meta_value;
         $attached_filename = basename($attached_file);
+        $attached_base = pathinfo($attached_filename, PATHINFO_FILENAME);
+        $attached_ext = strtolower(pathinfo($attached_filename, PATHINFO_EXTENSION));
         
-        // Match if filename is contained in the attached file path
-        // (accounts for prefix added during upload like "photo-9-dave.jpg")
-        if (stripos($attached_filename, $clean_filename) !== false) {
-            tm_sync_log('debug', "Found existing $image_type attachment in media library", array(
-                'search_filename' => $clean_filename,
-                'found_filename' => $attached_filename,
-                'attachment_id' => $row->ID
-            ));
-            return intval($row->ID);
+        // Match if:
+        // 1. Exact filename match (dave.jpg = dave.jpg)
+        // 2. Case-insensitive match (dave.jpg = Dave.jpg = DAVE.JPG)
+        // 3. Filename with prefix (photo-9-dave.jpg where "dave.jpg" is after prefix)
+        $exact_match = (strtolower($attached_filename) === strtolower($clean_filename));
+        $base_match = (strtolower($attached_base) === strtolower($filename_no_ext) && 
+                       strtolower($attached_ext) === $extension);
+        
+        // Check if the filename appears after a prefix pattern (e.g., "photo-9-")
+        // Pattern: word-digits-filename.ext
+        $prefix_match = false;
+        if (preg_match('/^[a-z]+-\d+-(.+)$/i', $attached_filename, $matches)) {
+            $after_prefix = $matches[1];
+            if (strtolower($after_prefix) === strtolower($clean_filename)) {
+                $prefix_match = true;
+            }
+        }
+        
+        if ($exact_match || $base_match || $prefix_match) {
+            $candidates[] = [
+                'id' => intval($row->ID),
+                'filename' => $attached_filename,
+                'file_path' => $attached_file
+            ];
         }
     }
     
-    return null;
+    if (empty($candidates)) {
+        tm_sync_log('debug', "No matching attachments after filename comparison", [
+            'search_filename' => $clean_filename,
+            'checked' => count($results)
+        ]);
+        return null;
+    }
+    
+    // Return the newest (highest ID) attachment for this filename
+    // This handles the case where multiple copies exist (prefer the most recent)
+    usort($candidates, function($a, $b) {
+        return $b['id'] - $a['id'];  // Sort descending (newest first)
+    });
+    
+    $selected = $candidates[0];
+    tm_sync_log('info', "Found existing $image_type attachment in media library", [
+        'search_filename' => $clean_filename,
+        'found_filename' => $selected['filename'],
+        'attachment_id' => $selected['id'],
+        'candidates_found' => count($candidates),
+        'action' => count($candidates) > 1 ? 'selected_most_recent' : 'found_single_match'
+    ]);
+    
+    return $selected['id'];
 }
 
 /**

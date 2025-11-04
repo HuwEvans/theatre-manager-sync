@@ -5,29 +5,11 @@ tm_sync_log('INFO','Board-Member-Sync File loading');
 /**
  * Check if we already downloaded this SharePoint file for this board member
  * Returns attachment ID if found, null otherwise
+ * Now uses global orphaned attachment detection to prevent duplicates
  */
 function tm_sync_attachment_exists_for_board_member($post_id, $filename, $type = 'photo') {
-    // Check if we have metadata about already downloaded images
-    $existing_attachment_id = get_post_meta($post_id, '_tm_' . $type, true);
-    
-    if (!empty($existing_attachment_id) && is_numeric($existing_attachment_id)) {
-        // Verify the attachment still exists and has the right file
-        $attachment = get_post($existing_attachment_id);
-        if ($attachment && $attachment->post_type === 'attachment') {
-            $attached_file = get_attached_file($attachment->ID);
-            if ($attached_file) {
-                tm_sync_log('debug', 'Found existing attachment for board member.', array(
-                    'filename' => $filename,
-                    'type' => $type,
-                    'attachment_id' => $existing_attachment_id,
-                    'attached_file' => $attached_file
-                ));
-                return $existing_attachment_id;
-            }
-        }
-    }
-    
-    return null;
+    // Use the generic function which checks both post meta and orphaned files
+    return tm_sync_attachment_exists($post_id, $filename, '_tm_' . $type, $type);
 }
 
 function tm_sync_download_media_for_board_member($filename, $filename_prefix) {
@@ -297,26 +279,30 @@ function tm_sync_process_board_member($item, $dry_run = false) {
             // Extract filename from URL (e.g., "john-doe.jpg")
             $filename = basename($photo_url);
             
-            // Check if we already have this attachment for this board member
-            $existing_photo_id = tm_sync_attachment_exists_for_board_member($post_id, $filename, 'photo');
-            if ($existing_photo_id) {
-                tm_sync_log('info', 'Reusing existing photo attachment (not re-downloading).', array(
-                    'filename' => $filename,
-                    'attachment_id' => $existing_photo_id,
-                    'post_id' => $post_id
-                ));
-                update_post_meta($post_id, '_tm_photo', $existing_photo_id);
+            // Get access token and SharePoint config
+            if (!class_exists('TM_Graph_Client')) {
+                tm_sync_log('warning', 'TM_Graph_Client not available for photo sync');
             } else {
-                tm_sync_log('debug', 'Attempting to download photo from Image Media library.', array('filename' => $filename));
-                $photo_id = tm_sync_download_media_for_board_member($filename, "photo-{$sp_id}");
-                if ($photo_id) {
-                    update_post_meta($post_id, '_tm_photo', $photo_id);
-                    tm_sync_log('info', 'Photo successfully attached.', array('filename' => $filename, 'attachment_id' => $photo_id));
-                } else {
-                    tm_sync_log('warning', 'Photo could not be synced.', array(
-                        'filename' => $filename,
-                        'note' => 'File may not exist in SharePoint Image Media People folder'
-                    ));
+                $client = new TM_Graph_Client();
+                $token = $client->get_access_token_public();
+                
+                if ($token) {
+                    // Get Site and List IDs
+                    $site_id = 'miltonplayers.sharepoint.com,9122b47c-2748-446f-820e-ab3bc46b80d0,5d9211a6-6d28-4644-ad40-82fe3972fbf1';
+                    $image_media_list_id = '36cd8ce2-6611-401a-ae0c-20dd4abcf36b';
+                    
+                    // Use the generic image sync function (handles orphaned attachment detection)
+                    tm_sync_image_for_post(
+                        $post_id,
+                        $filename,
+                        $photo_url,
+                        '_tm_photo',
+                        $sp_id,
+                        'photo',
+                        $site_id,
+                        $image_media_list_id,
+                        $token
+                    );
                 }
             }
         }
