@@ -3,6 +3,7 @@ if (!is_admin()) return;
 
 require_once plugin_dir_path(__FILE__) . '../api/class-tm-graph-client.php';
 require_once plugin_dir_path(__FILE__) . 'advertiser-sync.php';
+require_once plugin_dir_path(__FILE__) . 'board-member-sync.php';
 
 
 tm_sync_log('INFO','Sync Handlers Loading');
@@ -25,6 +26,9 @@ add_action('wp_ajax_tm_sync_run', function() {
     switch ($cpt) {
         case 'advertiser':
             $summary = tm_sync_advertisers($dry_run);
+            break;
+        case 'board_member':
+            $summary = tm_sync_board_members($dry_run);
             break;
         default:
             $summary = 'Unknown CPT type: ' . $cpt;
