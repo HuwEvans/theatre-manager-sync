@@ -47,7 +47,7 @@ function tm_sync_process_sponsor($item, $dry_run = false) {
         $sp_id = $item['id'] ?? null;
         $name = trim($fields['Title'] ?? '');
         $company = trim($fields['Company'] ?? '');
-        $sponsor_level = trim($fields['SponsorshipLevel'] ?? $fields['SponsorLevel'] ?? $fields['Level'] ?? '');
+        $sponsor_level = trim($fields['SponsorLevel'] ?? $fields['Level'] ?? '');
         
         // Website can be a string or an object with Url property
         $website = '';
@@ -69,7 +69,7 @@ function tm_sync_process_sponsor($item, $dry_run = false) {
             }
         }
         
-        // Banner can be a string or an object with Url property (may not exist in all lists)
+        // Banner can be a string or an object with Url property (may be empty)
         $banner_url = '';
         if (isset($fields['Banner'])) {
             if (is_array($fields['Banner']) || is_object($fields['Banner'])) {
