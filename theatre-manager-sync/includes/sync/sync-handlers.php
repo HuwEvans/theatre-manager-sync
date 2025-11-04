@@ -6,6 +6,10 @@ require_once plugin_dir_path(__FILE__) . 'folder-discovery.php';
 require_once plugin_dir_path(__FILE__) . 'generic-image-sync.php';
 require_once plugin_dir_path(__FILE__) . 'advertiser-sync.php';
 require_once plugin_dir_path(__FILE__) . 'board-member-sync.php';
+require_once plugin_dir_path(__FILE__) . 'cast-sync.php';
+require_once plugin_dir_path(__FILE__) . 'sponsors-sync.php';
+require_once plugin_dir_path(__FILE__) . 'seasons-sync.php';
+require_once plugin_dir_path(__FILE__) . 'shows-sync.php';
 
 
 tm_sync_log('INFO','Sync Handlers Loading');
@@ -31,6 +35,18 @@ add_action('wp_ajax_tm_sync_run', function() {
             break;
         case 'board_member':
             $summary = tm_sync_board_members($dry_run);
+            break;
+        case 'cast':
+            $summary = tm_sync_cast($dry_run);
+            break;
+        case 'sponsor':
+            $summary = tm_sync_sponsors($dry_run);
+            break;
+        case 'season':
+            $summary = tm_sync_seasons($dry_run);
+            break;
+        case 'show':
+            $summary = tm_sync_shows($dry_run);
             break;
         default:
             $summary = 'Unknown CPT type: ' . $cpt;
