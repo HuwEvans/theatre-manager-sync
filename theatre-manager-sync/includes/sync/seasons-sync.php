@@ -111,11 +111,19 @@ function tm_sync_process_season($item, $dry_run = false) {
         $sm_portrait_url = $extract_url($fields['SMPortrait'] ?? '');
 
         error_log('[SEASONS_DEBUG] Extracted images:');
-        error_log('[SEASONS_DEBUG] - Website banner: ' . ($website_banner_url ? 'YES' : 'NO'));
-        error_log('[SEASONS_DEBUG] - Front image: ' . ($image_front_url ? 'YES' : 'NO'));
-        error_log('[SEASONS_DEBUG] - Back image: ' . ($image_back_url ? 'YES' : 'NO'));
-        error_log('[SEASONS_DEBUG] - SM square: ' . ($sm_square_url ? 'YES' : 'NO'));
-        error_log('[SEASONS_DEBUG] - SM portrait: ' . ($sm_portrait_url ? 'YES' : 'NO'));
+        error_log('[SEASONS_DEBUG] - Website banner: ' . ($website_banner_url ? 'YES (' . substr($website_banner_url, 0, 60) . ')' : 'NO'));
+        error_log('[SEASONS_DEBUG] - Front image: ' . ($image_front_url ? 'YES (' . substr($image_front_url, 0, 60) . ')' : 'NO'));
+        error_log('[SEASONS_DEBUG] - Back image: ' . ($image_back_url ? 'YES (' . substr($image_back_url, 0, 60) . ')' : 'NO'));
+        error_log('[SEASONS_DEBUG] - SM square: ' . ($sm_square_url ? 'YES (' . substr($sm_square_url, 0, 60) . ')' : 'NO'));
+        error_log('[SEASONS_DEBUG] - SM portrait: ' . ($sm_portrait_url ? 'YES (' . substr($sm_portrait_url, 0, 60) . ')' : 'NO'));
+        
+        // Log the actual SharePoint field values for debugging
+        error_log('[SEASONS_DEBUG] Raw SharePoint field values:');
+        error_log('[SEASONS_DEBUG] - WebsiteBanner: ' . json_encode($fields['WebsiteBanner'] ?? 'NOT FOUND'));
+        error_log('[SEASONS_DEBUG] - 3-upFront: ' . json_encode($fields['3-upFront'] ?? 'NOT FOUND'));
+        error_log('[SEASONS_DEBUG] - 3-upBack: ' . json_encode($fields['3-upBack'] ?? 'NOT FOUND'));
+        error_log('[SEASONS_DEBUG] - SMSquare: ' . json_encode($fields['SMSquare'] ?? 'NOT FOUND'));
+        error_log('[SEASONS_DEBUG] - SMPortrait: ' . json_encode($fields['SMPortrait'] ?? 'NOT FOUND'));
 
         tm_sync_log('debug', 'Extracted fields', ['sp_id' => $sp_id, 'name' => $name, 'start_date' => $start_date, 'is_current' => $is_current_season, 'is_upcoming' => $is_upcoming_season]);
 
@@ -179,12 +187,18 @@ function tm_sync_process_season($item, $dry_run = false) {
         $verify_name = get_post_meta($post_id, '_tm_season_name', true);
         $verify_start = get_post_meta($post_id, '_tm_season_start_date', true);
         $verify_end = get_post_meta($post_id, '_tm_season_end_date', true);
+        $verify_front = get_post_meta($post_id, '_tm_season_image_front', true);
+        $verify_sm_square = get_post_meta($post_id, '_tm_season_sm_square', true);
+        $verify_sm_portrait = get_post_meta($post_id, '_tm_season_sm_portrait', true);
         
         error_log('[SEASONS_DEBUG] Saved metadata for season: name=' . $name . ', post_id=' . $post_id);
         error_log('[SEASONS_DEBUG] VERIFICATION - Retrieved from DB:');
         error_log('[SEASONS_DEBUG] - Name: "' . $verify_name . '" (matches: ' . ($verify_name === $name ? 'YES' : 'NO') . ')');
-        error_log('[SEASONS_DEBUG] - Start date: "' . $verify_start . '" (matches: ' . ($verify_start === $start_date ? 'YES' : 'NO') . ')');
-        error_log('[SEASONS_DEBUG] - End date: "' . $verify_end . '" (matches: ' . ($verify_end === $end_date ? 'YES' : 'NO') . ')');
+        error_log('[SEASONS_DEBUG] - Start date: "' . $verify_start . '" (expected: "' . $start_date . '", matches: ' . ($verify_start === $start_date ? 'YES' : 'NO') . ')');
+        error_log('[SEASONS_DEBUG] - End date: "' . $verify_end . '" (expected: "' . $end_date . '", matches: ' . ($verify_end === $end_date ? 'YES' : 'NO') . ')');
+        error_log('[SEASONS_DEBUG] - Front image: "' . ($verify_front ? substr($verify_front, 0, 50) . '...' : 'EMPTY') . '"');
+        error_log('[SEASONS_DEBUG] - SM Square: "' . ($verify_sm_square ? substr($verify_sm_square, 0, 50) . '...' : 'EMPTY') . '"');
+        error_log('[SEASONS_DEBUG] - SM Portrait: "' . ($verify_sm_portrait ? substr($verify_sm_portrait, 0, 50) . '...' : 'EMPTY') . '"');
 
         // Get access token for image syncing
         if (!class_exists('TM_Graph_Client')) {
