@@ -104,43 +104,64 @@ function tm_sync_handle_clean_ajax() {
         wp_send_json_error('Insufficient permissions');
     }
     
-    $cpts = isset($_POST['cpts']) ? (array) $_POST['cpts'] : [];
+    $action = sanitize_text_field($_POST['action_type'] ?? '');
     
-    if (empty($cpts)) {
-        wp_send_json_error('No CPTs selected');
-    }
-    
-    $total_deleted = 0;
-    $results = [];
-    
-    foreach ($cpts as $cpt) {
-        $cpt = sanitize_text_field($cpt);
-        
-        $posts = get_posts([
-            'post_type' => $cpt,
-            'numberposts' => -1,
-            'post_status' => 'any'
-        ]);
-        
-        $deleted = 0;
-        foreach ($posts as $post) {
-            if (wp_delete_post($post->ID, true)) {
-                $deleted++;
-            }
+    if ($action === 'delete_images') {
+        // Handle delete synced images
+        if (!function_exists('tm_sync_delete_all_images')) {
+            wp_send_json_error('Image management functions not available');
         }
         
-        $results[$cpt] = $deleted;
-        $total_deleted += $deleted;
+        $success = tm_sync_delete_all_images();
         
-        tm_sync_log('info', 'User deleted CPT posts via settings', ['cpt' => $cpt, 'deleted_count' => $deleted]);
+        if ($success) {
+            tm_sync_log('info', 'User deleted all synced images via settings');
+            wp_send_json_success([
+                'message' => 'Successfully deleted the synced images folder and all contents.'
+            ]);
+        } else {
+            wp_send_json_error('Failed to delete synced images folder. Check permissions.');
+        }
+    } else {
+        // Handle delete CPTs (original functionality)
+        $cpts = isset($_POST['cpts']) ? (array) $_POST['cpts'] : [];
+        
+        if (empty($cpts)) {
+            wp_send_json_error('No CPTs selected');
+        }
+        
+        $total_deleted = 0;
+        $results = [];
+        
+        foreach ($cpts as $cpt) {
+            $cpt = sanitize_text_field($cpt);
+            
+            $posts = get_posts([
+                'post_type' => $cpt,
+                'numberposts' => -1,
+                'post_status' => 'any'
+            ]);
+            
+            $deleted = 0;
+            foreach ($posts as $post) {
+                if (wp_delete_post($post->ID, true)) {
+                    $deleted++;
+                }
+            }
+            
+            $results[$cpt] = $deleted;
+            $total_deleted += $deleted;
+            
+            tm_sync_log('info', 'User deleted CPT posts via settings', ['cpt' => $cpt, 'deleted_count' => $deleted]);
+        }
+        
+        $message = sprintf('Successfully deleted %d post(s) from %d CPT(s).', $total_deleted, count($cpts));
+        wp_send_json_success([
+            'message' => $message,
+            'results' => $results,
+            'total_deleted' => $total_deleted
+        ]);
     }
-    
-    $message = sprintf('Successfully deleted %d post(s) from %d CPT(s).', $total_deleted, count($cpts));
-    wp_send_json_success([
-        'message' => $message,
-        'results' => $results,
-        'total_deleted' => $total_deleted
-    ]);
 }
 add_action('wp_ajax_tm_sync_clean_action', 'tm_sync_handle_clean_ajax');
 
@@ -393,6 +414,34 @@ function tm_sync_render_settings_page() {
                     </button>
                     
                     <div id="clean-status" style="margin-top: 15px; display: none; padding: 10px; border-radius: 3px;"></div>
+                    
+                    <hr style="margin: 30px 0;">
+                    
+                    <h3>Delete Synced Images</h3>
+                    <p>Theatre Manager Sync stores all downloaded images in a dedicated folder: <code><?php echo esc_html(tm_sync_get_images_dir()); ?></code></p>
+                    
+                    <div style="background-color: #fff3cd; border: 1px solid #ffc107; padding: 10px; margin-bottom: 15px; border-radius: 3px;">
+                        <strong>⚠️ Caution:</strong> Deleting the synced images folder will remove all downloaded images used by the plugin. Images will be re-downloaded on the next sync.
+                    </div>
+                    
+                    <p>
+                        <strong>Status:</strong> 
+                        <?php 
+                            $images_dir = tm_sync_get_images_dir();
+                            if (file_exists($images_dir)) {
+                                $file_count = count(array_diff(scandir($images_dir), ['.', '..']));
+                                echo '<span style="color: #0073aa;"><strong>' . esc_html($file_count) . '</strong> files/folders</span>';
+                            } else {
+                                echo '<span style="color: #999;">Folder does not exist yet</span>';
+                            }
+                        ?>
+                    </p>
+                    
+                    <button type="button" class="button button-danger tm-clean-action" data-action="delete_images" style="background-color: #dc3545; color: white; border-color: #dc3545; margin-right: 10px;">
+                        <span class="dashicons dashicons-trash"></span> Delete Synced Images Folder
+                    </button>
+                    
+                    <div id="images-status" style="margin-top: 15px; display: none; padding: 10px; border-radius: 3px;"></div>
                 </div>
             </div>
         </div>
@@ -634,50 +683,88 @@ function tm_sync_render_settings_page() {
         $('.tm-clean-action').on('click', function(e) {
             e.preventDefault();
             var $btn = $(this);
-            var selectedCpts = [];
+            var action = $btn.data('action');
             
-            $('.cpt-checkbox:checked').each(function() {
-                selectedCpts.push($(this).val());
-            });
-            
-            if (selectedCpts.length === 0) {
-                alert('Please select at least one CPT to delete.');
-                return;
-            }
-            
-            var message = 'Are you sure you want to delete all posts for: ' + selectedCpts.join(', ') + '?\n\nThis action cannot be undone!';
-            if (!confirm(message)) {
-                return;
-            }
-            
-            $btn.prop('disabled', true);
-            var $status = $('#clean-status');
-            $status.show().html('<p style="color: blue;">Deleting posts...</p>');
-            
-            $.ajax({
-                url: ajaxurl,
-                type: 'POST',
-                data: {
-                    action: 'tm_sync_clean_action',
-                    cpts: selectedCpts,
-                    nonce: '<?php echo wp_create_nonce('tm_sync_settings_nonce'); ?>'
-                },
-                success: function(response) {
-                    if (response.success) {
-                        $status.html('<p style="color: green;">✓ ' + response.data.message + '</p>');
-                        $('.cpt-checkbox:checked').prop('checked', false);
-                        updateCptCount();
-                    } else {
-                        $status.html('<p style="color: red;">✗ Error: ' + response.data + '</p>');
-                    }
-                },
-                error: function() {
-                    $status.html('<p style="color: red;">✗ AJAX error occurred</p>');
-                },
-                complete: function() {
-                    $btn.prop('disabled', false);
+            if (action === 'delete_images') {
+                // Handle delete synced images
+                if (!confirm('Are you sure you want to delete all synced images?\n\nThis action cannot be undone!\n\nImages will be re-downloaded on the next sync.')) {
+                    return;
                 }
-            });
+                
+                $btn.prop('disabled', true);
+                var $status = $('#images-status');
+                $status.show().html('<p style="color: blue;">Deleting synced images folder...</p>');
+                
+                $.ajax({
+                    url: ajaxurl,
+                    type: 'POST',
+                    data: {
+                        action: 'tm_sync_clean_action',
+                        action_type: action,
+                        nonce: '<?php echo wp_create_nonce('tm_sync_settings_nonce'); ?>'
+                    },
+                    success: function(response) {
+                        if (response.success) {
+                            $status.html('<p style="color: green;">✓ ' + response.data.message + '</p>');
+                            location.reload();
+                        } else {
+                            $status.html('<p style="color: red;">✗ Error: ' + response.data + '</p>');
+                        }
+                    },
+                    error: function() {
+                        $status.html('<p style="color: red;">✗ AJAX error occurred</p>');
+                    },
+                    complete: function() {
+                        $btn.prop('disabled', false);
+                    }
+                });
+            } else {
+                // Handle delete CPTs
+                var selectedCpts = [];
+                
+                $('.cpt-checkbox:checked').each(function() {
+                    selectedCpts.push($(this).val());
+                });
+                
+                if (selectedCpts.length === 0) {
+                    alert('Please select at least one CPT to delete.');
+                    return;
+                }
+                
+                var message = 'Are you sure you want to delete all posts for: ' + selectedCpts.join(', ') + '?\n\nThis action cannot be undone!';
+                if (!confirm(message)) {
+                    return;
+                }
+                
+                $btn.prop('disabled', true);
+                var $status = $('#clean-status');
+                $status.show().html('<p style="color: blue;">Deleting posts...</p>');
+                
+                $.ajax({
+                    url: ajaxurl,
+                    type: 'POST',
+                    data: {
+                        action: 'tm_sync_clean_action',
+                        cpts: selectedCpts,
+                        nonce: '<?php echo wp_create_nonce('tm_sync_settings_nonce'); ?>'
+                    },
+                    success: function(response) {
+                        if (response.success) {
+                            $status.html('<p style="color: green;">✓ ' + response.data.message + '</p>');
+                            $('.cpt-checkbox:checked').prop('checked', false);
+                            updateCptCount();
+                        } else {
+                            $status.html('<p style="color: red;">✗ Error: ' + response.data + '</p>');
+                        }
+                    },
+                    error: function() {
+                        $status.html('<p style="color: red;">✗ AJAX error occurred</p>');
+                    },
+                    complete: function() {
+                        $btn.prop('disabled', false);
+                    }
+                });
+            }
         });
     });
     </script>

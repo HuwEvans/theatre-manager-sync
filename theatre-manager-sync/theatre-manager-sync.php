@@ -29,6 +29,7 @@ if ( ! defined('THEATRE_MANAGER_SYNC_VERSION') ) {
 define('TMS_PLUGIN_DIR', plugin_dir_path(__FILE__));
 //define('TM_PLUGIN_URL', plugin_dir_url(__FILE__));
 		require_once TMS_PLUGIN_DIR . 'includes/logger.php';
+		require_once TMS_PLUGIN_DIR . 'includes/image-management.php';
 		require_once TMS_PLUGIN_DIR . 'admin/admin-menu.php';
 		require_once TMS_PLUGIN_DIR . 'includes/helpers.php';
 		// Load sync handlers first to make folder-discovery functions available
@@ -182,3 +183,22 @@ add_action('admin_init', function() {
         exit;
     }
 });
+
+/**
+ * Plugin activation hook - set up folders and initial configuration
+ */
+register_activation_hook(__FILE__, function() {
+    if (function_exists('tm_sync_activate_setup')) {
+        tm_sync_activate_setup();
+    }
+});
+
+/**
+ * Plugin deactivation hook - clean up synced images and scheduled events
+ */
+register_deactivation_hook(__FILE__, function() {
+    if (function_exists('tm_sync_deactivate_cleanup')) {
+        tm_sync_deactivate_cleanup();
+    }
+});
+
