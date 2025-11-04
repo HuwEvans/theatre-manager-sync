@@ -3,14 +3,71 @@
 tm_sync_log('INFO','Generic-Image-Sync File loading');
 
 /**
+ * Find attachment by filename in WordPress media library
+ * Searches global media library to detect orphaned attachments from deleted posts
+ * 
+ * @param string $filename File name to search for (original SharePoint filename)
+ * @param string $image_type Type of image for logging (e.g., "photo", "logo")
+ * @return int|null Attachment ID if found, null otherwise
+ */
+function tm_sync_find_attachment_by_filename($filename, $image_type = 'image') {
+    global $wpdb;
+    
+    if (empty($filename)) {
+        return null;
+    }
+    
+    $clean_filename = basename($filename);
+    
+    // Search attachments by checking their file paths
+    // This is more efficient than loading all attachments into PHP
+    $results = $wpdb->get_results($wpdb->prepare(
+        "SELECT p.ID, pm.meta_value
+         FROM {$wpdb->posts} p
+         INNER JOIN {$wpdb->postmeta} pm ON p.ID = pm.post_id
+         WHERE p.post_type = 'attachment'
+         AND pm.meta_key = '_wp_attached_file'
+         AND pm.meta_value LIKE %s
+         LIMIT 10",
+        '%' . $clean_filename
+    ));
+    
+    if (empty($results)) {
+        return null;
+    }
+    
+    // Check each result for filename match
+    foreach ($results as $row) {
+        $attached_file = $row->meta_value;
+        $attached_filename = basename($attached_file);
+        
+        // Match if filename is contained in the attached file path
+        // (accounts for prefix added during upload like "photo-9-dave.jpg")
+        if (stripos($attached_filename, $clean_filename) !== false) {
+            tm_sync_log('debug', "Found existing $image_type attachment in media library", array(
+                'search_filename' => $clean_filename,
+                'found_filename' => $attached_filename,
+                'attachment_id' => $row->ID
+            ));
+            return intval($row->ID);
+        }
+    }
+    
+    return null;
+}
+
+/**
  * Check if we already downloaded this SharePoint file for a post
+ * Checks both post meta (for already-attached files) and global media library (for orphaned files from deleted posts)
  * 
  * @param int $post_id WordPress post ID
  * @param string $filename File name
  * @param string $meta_key Meta key to store attachment ID (e.g., '_tm_logo', '_tm_photo')
+ * @param string $image_type Type of image for logging (e.g., "photo", "logo")
  * @return int|null Attachment ID if found and exists, null otherwise
  */
-function tm_sync_attachment_exists($post_id, $filename, $meta_key = '_tm_logo') {
+function tm_sync_attachment_exists($post_id, $filename, $meta_key = '_tm_logo', $image_type = 'image') {
+    // First check: Is this attachment linked to this post in post meta?
     $existing_attachment_id = get_post_meta($post_id, $meta_key, true);
     
     if (!empty($existing_attachment_id) && is_numeric($existing_attachment_id)) {
@@ -18,14 +75,30 @@ function tm_sync_attachment_exists($post_id, $filename, $meta_key = '_tm_logo') 
         if ($attachment && $attachment->post_type === 'attachment') {
             $attached_file = get_attached_file($attachment->ID);
             if ($attached_file) {
-                tm_sync_log('debug', 'Found existing attachment', array(
+                tm_sync_log('debug', "Found existing $image_type linked to post", array(
                     'filename' => $filename,
                     'meta_key' => $meta_key,
-                    'attachment_id' => $existing_attachment_id
+                    'attachment_id' => $existing_attachment_id,
+                    'post_id' => $post_id
                 ));
                 return $existing_attachment_id;
             }
         }
+    }
+    
+    // Second check: Search media library for orphaned file (from deleted posts)
+    // This prevents duplicate uploads when a post is deleted and sync runs again
+    $orphaned_attachment_id = tm_sync_find_attachment_by_filename($filename, $image_type);
+    if ($orphaned_attachment_id) {
+        tm_sync_log('info', "Found orphaned $image_type in media library (post may have been deleted)", array(
+            'filename' => $filename,
+            'attachment_id' => $orphaned_attachment_id,
+            'post_id' => $post_id,
+            'action' => 'reattaching orphaned file'
+        ));
+        // Reattach the orphaned file to this post
+        update_post_meta($post_id, $meta_key, $orphaned_attachment_id);
+        return $orphaned_attachment_id;
     }
     
     return null;
@@ -274,8 +347,8 @@ function tm_sync_image_for_post(
         'post_id' => $post_id
     ]);
 
-    // Check if we already have this attachment
-    $existing_attachment_id = tm_sync_attachment_exists($post_id, $filename, $meta_key);
+    // Check if we already have this attachment (checks post meta and global media library)
+    $existing_attachment_id = tm_sync_attachment_exists($post_id, $filename, $meta_key, $image_type);
     if ($existing_attachment_id) {
         tm_sync_log('info', "Reusing existing $image_type attachment (not re-downloading)", array(
             'filename' => $filename,
