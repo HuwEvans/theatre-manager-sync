@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Theatre Manager Sync
  * Description: Sync SharePoint lists to Theatre Manager CPTs (one-way) via Microsoft Graph (App-only, Sites.Selected).
- * Version: 0.2.4
+ * Version: 2.1
  * Author: Huw Evans
  * Requires at least: 6.5
  * Requires PHP: 8.1
@@ -11,6 +11,19 @@
  */
 
 defined('ABSPATH') || exit;
+
+// Enable debug logging for the sync plugin
+if (!defined('WP_DEBUG')) {
+    define('WP_DEBUG', true);
+}
+if (!defined('WP_DEBUG_LOG')) {
+    define('WP_DEBUG_LOG', true);
+}
+
+// Public version constant for the sync plugin
+if ( ! defined('THEATRE_MANAGER_SYNC_VERSION') ) {
+    define('THEATRE_MANAGER_SYNC_VERSION', '2.1');
+}
 
 // Define plugin paths
 define('TMS_PLUGIN_DIR', plugin_dir_path(__FILE__));
@@ -157,15 +170,6 @@ if ( ! function_exists('tm_sync_bootstrap') ) {
         // Everything here can safely assume the required CPTs exist.
     }
 }
-
-wp_enqueue_script(
-    'tm-sync-admin',
-    plugin_dir_url(__FILE__) . 'assets/js/admin-sync.js',
-    ['jquery'],
-    null,
-    true
-);
-
 
 add_action('admin_init', function() {
     if (isset($_GET['force_advertiser_sync'])) {

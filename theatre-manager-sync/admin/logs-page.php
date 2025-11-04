@@ -59,12 +59,16 @@ class TM_Sync_Log_Table extends WP_List_Table {
     public function column_default($item, $column_name) {
         switch ($column_name) {
             case 'timestamp':
+                return esc_html($item['timestamp'] ?? '');
             case 'level':
+                return esc_html($item['level'] ?? '');
             case 'channel':
+                return esc_html($item['channel'] ?? 'default');
             case 'message':
-                return esc_html($item[$column_name]);
+                return esc_html($item['message'] ?? '');
             case 'context':
-                return '<pre style="white-space:pre-wrap;">' . esc_html(json_encode($item['context'], JSON_PRETTY_PRINT)) . '</pre>';
+                $context = isset($item['context']) ? json_encode($item['context'], JSON_PRETTY_PRINT) : '';
+                return '<pre style="white-space:pre-wrap;">' . esc_html($context) . '</pre>';
             default:
                 return '';
         }

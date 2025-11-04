@@ -7,13 +7,33 @@ require_once plugin_dir_path(__FILE__) . 'advertiser-sync.php';
 
 tm_sync_log('INFO','Sync Handlers Loading');
 
-add_action('wp_ajax_tm_sync_run_advertiser', function() {
-    tm_sync_log('INFO', 'AJAX handler triggered for advertiser sync');
-    check_ajax_referer('tm_sync_nonce');
-    $dry_run = isset($_POST['dry_run']) && $_POST['dry_run'] === '1';
-    tm_sync_log('INFO', 'Dry run value: ' . ($dry_run ? 'Yes' : 'No'));
-    $summary = tm_sync_advertisers($dry_run);
-    wp_send_json_success(['message' => $summary]);
+add_action('wp_ajax_tm_sync_run', function() {
+    tm_sync_log('info', 'AJAX handler triggered for sync');
+    check_ajax_referer('tm_sync_nonce', 'nonce');
+    
+    if (!current_user_can('manage_options')) {
+        tm_sync_log('error', 'Unauthorized sync attempt');
+        wp_send_json_error('Unauthorized');
+        return;
+    }
+    
+    $cpt = isset($_POST['cpt']) ? sanitize_text_field($_POST['cpt']) : '';
+    $dry_run = isset($_POST['dry_run']) ? filter_var($_POST['dry_run'], FILTER_VALIDATE_BOOLEAN) : false;
+    
+    tm_sync_log('info', 'Processing sync', ['cpt' => $cpt, 'dry_run' => $dry_run]);
+    
+    switch ($cpt) {
+        case 'advertiser':
+            $summary = tm_sync_advertisers($dry_run);
+            break;
+        default:
+            $summary = 'Unknown CPT type: ' . $cpt;
+            tm_sync_log('error', 'Unknown CPT type', ['cpt' => $cpt]);
+            break;
+    }
+    
+    tm_sync_log('info', 'AJAX sync complete', ['cpt' => $cpt, 'summary' => $summary]);
+    wp_send_json_success($summary);
 });
 
 

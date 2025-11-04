@@ -11,28 +11,54 @@ const TM_SYNC_LOG_RETENTION_DAYS = 30;
  * @param string $message  Log message
  * @param array  $context  Optional context data
  */
-function tm_sync_log($level, $message, array $context = []) {
-    $uploads = wp_upload_dir();
-    $log_dir = trailingslashit($uploads['basedir']) . TM_SYNC_LOG_DIR;
+function tm_sync_log($level, $message, $context = []) {
+    static $log_initialized = false;
 
-    if (!is_dir($log_dir)) {
-        wp_mkdir_p($log_dir);
+    // Only log if WP_DEBUG is enabled
+    if (!defined('WP_DEBUG') || !WP_DEBUG) {
+        return;
     }
 
-    $date = current_time('Y-m-d');
-    $file = trailingslashit($log_dir) . "tm-sync-{$date}.log";
+    // Normalize log level
+    $level = strtoupper($level);
+    
+    // Set up log file path
+    $log_dir = WP_CONTENT_DIR . '/tm-sync-logs';
+    $log_file = $log_dir . '/tm-sync.log';
 
-    $entry = [
-        'timestamp' => current_time('mysql'),
-        'level'     => strtoupper($level),
-        'message'   => $message,
-        'context'   => $context,
-        'user_id'   => get_current_user_id(),
-        'blog_id'   => get_current_blog_id(),
-    ];
+    // Initialize log directory if needed
+    if (!$log_initialized) {
+        if (!file_exists($log_dir)) {
+            wp_mkdir_p($log_dir);
+        }
+        $log_initialized = true;
+    }
 
-    $line = wp_json_encode($entry, JSON_UNESCAPED_SLASHES | JSON_PARTIAL_OUTPUT_ON_ERROR) . PHP_EOL;
-    file_put_contents($file, $line, FILE_APPEND | LOCK_EX);
+    // Add request ID to context for tracking related log entries
+    if (empty($context['request_id'])) {
+        static $request_id = null;
+        if ($request_id === null) {
+            $request_id = uniqid('tm_sync_', true);
+        }
+        $context['request_id'] = $request_id;
+    }
+
+    // Add debug backtrace for better debugging
+    if ($level === 'ERROR' || $level === 'WARNING') {
+        $trace = debug_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS, 2);
+        $caller = isset($trace[1]) ? $trace[1] : $trace[0];
+        $context['file'] = isset($caller['file']) ? basename($caller['file']) : '';
+        $context['line'] = $caller['line'] ?? '';
+        $context['function'] = $caller['function'] ?? '';
+    }
+
+    // Format the log entry
+    $timestamp = current_time('Y-m-d H:i:s');
+    $context_json = !empty($context) ? ' ' . wp_json_encode($context, JSON_UNESCAPED_SLASHES) : '';
+    $log_entry = sprintf("[%s] [%s] %s%s\n", $timestamp, $level, $message, $context_json);
+
+    // Write to log file
+    error_log($log_entry, 3, $log_file);
 }
 
 /**

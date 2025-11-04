@@ -16,48 +16,40 @@ function tm_sync_register_admin_menu() {
     // Top-level menu (parent)
     // Page slug: 'tm-sync' — we’ll reuse this slug for the "Auth" submenu to avoid a duplicate item.
     $parent_hook = add_menu_page(
-        __( 'TM Sync', 'theatre-manager-sync' ),   // Page title
-        __( 'TM Sync', 'theatre-manager-sync' ),   // Menu title
-        TM_SYNC_CAP,                               // Capability
-        'tm-sync',                                 // Menu slug
-        'tm_sync_page_auth',                       // Callback for the landing page
-        'dashicons-update',                        // Icon (pick any dashicon)
-        58                                         // Position (tweak as needed)
-    );
-
-    // Submenu: Auth (uses the SAME slug as parent so there is no duplicate)
-    $auth_hook = add_submenu_page(
-        'tm-sync',                                 // Parent slug
-        __( 'TM Sync – Auth', 'theatre-manager-sync' ), // Page title
-        __( 'Auth', 'theatre-manager-sync' ),      // Submenu label
-        TM_SYNC_CAP,                               // Capability
-        'tm-sync',                                 // <-- same as parent slug
-        'tm_sync_page_auth'                        // Callback
-    );
-
-    // Submenu: Sync
-    $sync_hook = add_submenu_page(
-        'tm-sync',
-        __( 'TM Sync – Sync', 'theatre-manager-sync' ),
-        __( 'Sync', 'theatre-manager-sync' ),
+        __('Theatre Manager Sync', 'theatre-manager-sync'),
+        __('TM Sync', 'theatre-manager-sync'),
         TM_SYNC_CAP,
-        'tm-sync-sync',
-        'tm_sync_page_sync'
+        'theatre-manager-sync',
+        'tm_sync_admin_page',
+        'dashicons-update',
+        58
     );
-add_submenu_page(
-    'theatre-manager-sync',
-    'Manual Sync',
-    'Manual Sync',
-    'manage_options',
-    'tm-sync-manual',
-    'tm_sync_admin_page'
-);
+
+    // Submenu: Manual Sync (main page)
+    add_submenu_page(
+        'theatre-manager-sync',
+        __('Theatre Manager Sync', 'theatre-manager-sync'),
+        __('Manual Sync', 'theatre-manager-sync'),
+        TM_SYNC_CAP,
+        'theatre-manager-sync',
+        'tm_sync_admin_page'
+    );
+
+    // Submenu: Auth
+    $auth_hook = add_submenu_page(
+        'theatre-manager-sync',
+        __('TM Sync – Authentication', 'theatre-manager-sync'),
+        __('Authentication', 'theatre-manager-sync'),
+        TM_SYNC_CAP,
+        'tm-sync-auth',
+        'tm_sync_page_auth'
+    );
 
     // Submenu: Logs
     $logs_hook = add_submenu_page(
-        'tm-sync',
-        __( 'TM Sync – Logs', 'theatre-manager-sync' ),
-        __( 'Logs', 'theatre-manager-sync' ),
+        'theatre-manager-sync',
+        __('TM Sync – Logs', 'theatre-manager-sync'),
+        __('Logs', 'theatre-manager-sync'),
         TM_SYNC_CAP,
         'tm-sync-logs',
         'tm_sync_page_logs'
@@ -65,18 +57,18 @@ add_submenu_page(
 
     // Submenu: Details
     $details_hook = add_submenu_page(
-        'tm-sync',
-        __( 'TM Sync – Details', 'theatre-manager-sync' ),
-        __( 'Details', 'theatre-manager-sync' ),
+        'theatre-manager-sync',
+        __('TM Sync – Details', 'theatre-manager-sync'),
+        __('Details', 'theatre-manager-sync'),
         TM_SYNC_CAP,
         'tm-sync-details',
         'tm_sync_page_details'
     );
 
-    // (Optional) Per-screen hooks: enqueue assets or add help tabs only on those pages.
-    add_action("load-$auth_hook",    'tm_sync_load_auth_screen');
-    add_action("load-$sync_hook",    'tm_sync_load_sync_screen');
-    add_action("load-$logs_hook",    'tm_sync_load_logs_screen');
+    // Per-screen hooks for assets and help tabs
+    add_action("load-$parent_hook", 'tm_sync_load_admin_screen');
+    add_action("load-$auth_hook", 'tm_sync_load_auth_screen');
+    add_action("load-$logs_hook", 'tm_sync_load_logs_screen');
     add_action("load-$details_hook", 'tm_sync_load_details_screen');
 }
 
