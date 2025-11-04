@@ -50,17 +50,21 @@ function tm_sync_process_season($item, $dry_run = false) {
         error_log('[SEASONS_DEBUG] Field keys: ' . implode(', ', array_keys((array)$fields)));
         
         $sp_id = $item['id'] ?? null;
+        
         // SharePoint field mapping for Seasons:
-        // - SeasonName contains season name (fallback to Title)
-        // - StartDate, EndDate for dates
-        // - WebsiteBanner, 3-upFront, 3-upBack, SMSquare, SMPortrait for images
-        // - IsCurrentSeason, IsUpcomingSeason for flags
-        $name = trim($fields['SeasonName'] ?? $fields['Title'] ?? '');
+        // When the expand=fields($select=...) fails, SharePoint returns generic field_1, field_2, etc.
+        // Map them to actual field meanings based on the field order in the Seasons list
+        // If named fields exist, use those. Otherwise, use field_X mapping.
+        $name = trim($fields['SeasonName'] ?? $fields['field_1'] ?? $fields['Title'] ?? '');
         
         // Extract and format dates - SharePoint returns ISO 8601 format (2025-01-15T00:00:00Z)
         // We need to convert to simple date format (2025-01-15) for WordPress date fields
-        $start_date_raw = $fields['StartDate'] ?? '';
-        $end_date_raw = $fields['EndDate'] ?? '';
+        $start_date_raw = $fields['StartDate'] ?? $fields['field_2'] ?? '';
+        $end_date_raw = $fields['EndDate'] ?? $fields['field_3'] ?? '';
+        
+        // For boolean fields that come as generic field_4 and field_5
+        $is_current_season = $fields['IsCurrentSeason'] ?? $fields['field_4'] ?? '';
+        $is_upcoming_season = $fields['IsUpcomingSeason'] ?? $fields['field_5'] ?? '';
         
         // Helper function to extract date in YYYY-MM-DD format from SharePoint date
         $extract_date = function($date_field) {
@@ -80,20 +84,18 @@ function tm_sync_process_season($item, $dry_run = false) {
         
         $start_date = $extract_date($start_date_raw);
         $end_date = $extract_date($end_date_raw);
-        $is_current_season = trim($fields['IsCurrentSeason'] ?? '');
-        $is_upcoming_season = trim($fields['IsUpcomingSeason'] ?? '');
         
         // DETAILED DEBUG LOGGING
         error_log('[SEASONS_DEBUG] SharePoint field mapping:');
-        error_log('[SEASONS_DEBUG] - SeasonName field: ' . (isset($fields['SeasonName']) ? 'EXISTS' : 'NOT FOUND'));
+        error_log('[SEASONS_DEBUG] - SeasonName field: ' . (isset($fields['SeasonName']) ? 'EXISTS' : 'NOT FOUND (using field_1)'));
         error_log('[SEASONS_DEBUG] - Title field: ' . (isset($fields['Title']) ? 'EXISTS' : 'NOT FOUND'));
         error_log('[SEASONS_DEBUG] - Final name value: "' . $name . '"');
         error_log('[SEASONS_DEBUG] - Start date (raw): "' . (is_string($start_date_raw) ? $start_date_raw : json_encode($start_date_raw)) . '"');
         error_log('[SEASONS_DEBUG] - Start date (formatted): "' . $start_date . '"');
         error_log('[SEASONS_DEBUG] - End date (raw): "' . (is_string($end_date_raw) ? $end_date_raw : json_encode($end_date_raw)) . '"');
         error_log('[SEASONS_DEBUG] - End date (formatted): "' . $end_date . '"');
-        error_log('[SEASONS_DEBUG] - Is current: "' . $is_current_season . '"');
-        error_log('[SEASONS_DEBUG] - Is upcoming: "' . $is_upcoming_season . '"');
+        error_log('[SEASONS_DEBUG] - Is current: "' . $is_current_season . '" (from ' . (isset($fields['IsCurrentSeason']) ? 'IsCurrentSeason' : 'field_4') . ')');
+        error_log('[SEASONS_DEBUG] - Is upcoming: "' . $is_upcoming_season . '" (from ' . (isset($fields['IsUpcomingSeason']) ? 'IsUpcomingSeason' : 'field_5') . ')');
         
         // Helper function to extract URL from hyperlink/image field
         $extract_url = function($field) {
@@ -104,11 +106,12 @@ function tm_sync_process_season($item, $dry_run = false) {
             return '';
         };
         
-        $website_banner_url = $extract_url($fields['WebsiteBanner'] ?? '');
-        $image_front_url = $extract_url($fields['3-upFront'] ?? '');
-        $image_back_url = $extract_url($fields['3-upBack'] ?? '');
-        $sm_square_url = $extract_url($fields['SMSquare'] ?? '');
-        $sm_portrait_url = $extract_url($fields['SMPortrait'] ?? '');
+        // Try both named fields and generic field_X names
+        $website_banner_url = $extract_url($fields['WebsiteBanner'] ?? $fields['field_6'] ?? '');
+        $image_front_url = $extract_url($fields['3-upFront'] ?? $fields['field_7'] ?? '');
+        $image_back_url = $extract_url($fields['3-upBack'] ?? $fields['field_8'] ?? '');
+        $sm_square_url = $extract_url($fields['SMSquare'] ?? $fields['field_9'] ?? '');
+        $sm_portrait_url = $extract_url($fields['SMPortrait'] ?? $fields['field_10'] ?? '');
 
         error_log('[SEASONS_DEBUG] Extracted images:');
         error_log('[SEASONS_DEBUG] - Website banner: ' . ($website_banner_url ? 'YES (' . substr($website_banner_url, 0, 60) . ')' : 'NO'));
@@ -119,11 +122,11 @@ function tm_sync_process_season($item, $dry_run = false) {
         
         // Log the actual SharePoint field values for debugging
         error_log('[SEASONS_DEBUG] Raw SharePoint field values:');
-        error_log('[SEASONS_DEBUG] - WebsiteBanner: ' . json_encode($fields['WebsiteBanner'] ?? 'NOT FOUND'));
-        error_log('[SEASONS_DEBUG] - 3-upFront: ' . json_encode($fields['3-upFront'] ?? 'NOT FOUND'));
-        error_log('[SEASONS_DEBUG] - 3-upBack: ' . json_encode($fields['3-upBack'] ?? 'NOT FOUND'));
-        error_log('[SEASONS_DEBUG] - SMSquare: ' . json_encode($fields['SMSquare'] ?? 'NOT FOUND'));
-        error_log('[SEASONS_DEBUG] - SMPortrait: ' . json_encode($fields['SMPortrait'] ?? 'NOT FOUND'));
+        error_log('[SEASONS_DEBUG] - WebsiteBanner: ' . json_encode($fields['WebsiteBanner'] ?? 'NOT FOUND') . ' / field_6: ' . json_encode($fields['field_6'] ?? 'NOT FOUND'));
+        error_log('[SEASONS_DEBUG] - 3-upFront: ' . json_encode($fields['3-upFront'] ?? 'NOT FOUND') . ' / field_7: ' . json_encode($fields['field_7'] ?? 'NOT FOUND'));
+        error_log('[SEASONS_DEBUG] - 3-upBack: ' . json_encode($fields['3-upBack'] ?? 'NOT FOUND') . ' / field_8: ' . json_encode($fields['field_8'] ?? 'NOT FOUND'));
+        error_log('[SEASONS_DEBUG] - SMSquare: ' . json_encode($fields['SMSquare'] ?? 'NOT FOUND') . ' / field_9: ' . json_encode($fields['field_9'] ?? 'NOT FOUND'));
+        error_log('[SEASONS_DEBUG] - SMPortrait: ' . json_encode($fields['SMPortrait'] ?? 'NOT FOUND') . ' / field_10: ' . json_encode($fields['field_10'] ?? 'NOT FOUND'));
 
         tm_sync_log('debug', 'Extracted fields', ['sp_id' => $sp_id, 'name' => $name, 'start_date' => $start_date, 'is_current' => $is_current_season, 'is_upcoming' => $is_upcoming_season]);
 
