@@ -130,14 +130,18 @@ class TM_Graph_Client {
         // Build endpoint with explicit field selection based on list type
         // SharePoint's Graph API requires explicit field names in the select parameter
         $fields = $this->get_fields_for_list($list_name);
-        $field_param = !empty($fields) ? '&select=' . urlencode(implode(',', $fields)) : '';
         
-        // Build endpoint - use $select instead of expand to get specific fields
-        // Add expand=fields to ensure we get all fields data
-        $endpoint = "sites/{$this->site_id}/lists/{$list_id}/items?expand=fields($select=" . urlencode(implode(',', $fields)) . ")";
+        // Build the field list - do NOT urlencode the entire expand syntax
+        // Only urlencode individual field names if they have special characters
+        $field_list = implode(',', array_map('urlencode', $fields));
+        
+        // Build endpoint - expand=fields with explicit $select of field names
+        // Format: expand=fields($select=field1,field2,field3)
+        $endpoint = "sites/{$this->site_id}/lists/{$list_id}/items?expand=fields(\$select=" . $field_list . ")";
         
         error_log('[TM_Graph_Client] Using endpoint with fields: ' . $list_name);
         error_log('[TM_Graph_Client] Requesting fields: ' . implode(', ', $fields));
+        error_log('[TM_Graph_Client] Full endpoint: ' . $endpoint);
         $data = $this->request($endpoint);
         
         if (!$data) {
