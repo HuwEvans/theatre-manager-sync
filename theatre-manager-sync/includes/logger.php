@@ -27,11 +27,6 @@ function tm_logger_file_for_date( $date = null ) {
 function tm_sync_log($level, $message, $context = []) {
     static $log_initialized = false;
 
-    // Only log if WP_DEBUG is enabled
-    if (!defined('WP_DEBUG') || !WP_DEBUG) {
-        return;
-    }
-
     // Normalize log level
     $level = strtoupper($level);
     
@@ -65,13 +60,19 @@ function tm_sync_log($level, $message, $context = []) {
         $context['function'] = $caller['function'] ?? '';
     }
 
-    // Format the log entry
+    // Format the log entry as JSON for easy parsing
     $timestamp = current_time('Y-m-d H:i:s');
-    $context_json = !empty($context) ? ' ' . wp_json_encode($context, JSON_UNESCAPED_SLASHES) : '';
-    $log_entry = sprintf("[%s] [%s] %s%s\n", $timestamp, $level, $message, $context_json);
-
-    // Write to log file
-    error_log($log_entry, 3, $log_file);
+    $log_entry = [
+        'timestamp' => $timestamp,
+        'level' => strtolower($level),
+        'channel' => $context['channel'] ?? 'default',
+        'message' => $message,
+        'context' => $context,
+    ];
+    
+    // Write to log file as JSON (one entry per line)
+    $json_entry = wp_json_encode($log_entry, JSON_UNESCAPED_SLASHES) . "\n";
+    error_log($json_entry, 3, $log_file);
 }
 
 /**

@@ -96,6 +96,38 @@ function tm_sync_read_log_entries() {
 }
 
 /**
+ * Clear the log file
+ */
+function tm_sync_clear_log_file() {
+    $file = tm_logger_file_for_date();
+    if (file_exists($file)) {
+        unlink($file);
+        return true;
+    }
+    return false;
+}
+
+/**
+ * AJAX handler to clear logs
+ */
+function tm_sync_handle_clear_logs_ajax() {
+    check_ajax_referer('tm_sync_settings_nonce', 'nonce');
+    
+    if (!current_user_can('manage_options')) {
+        wp_send_json_error('Insufficient permissions');
+    }
+    
+    $result = tm_sync_clear_log_file();
+    
+    if ($result) {
+        wp_send_json_success(['message' => 'Logs cleared successfully']);
+    } else {
+        wp_send_json_error('Failed to clear logs');
+    }
+}
+add_action('wp_ajax_tm_sync_clear_logs', 'tm_sync_handle_clear_logs_ajax');
+
+/**
  * Render the Logs admin page.
  */
 function tm_sync_page_logs() {
@@ -120,6 +152,9 @@ function tm_sync_page_logs() {
     echo '</select>';
 
     submit_button('Filter', 'secondary', '', false);
+    
+    echo '&nbsp;<button type="button" class="button button-secondary" id="tm-sync-clear-logs-btn" style="background-color: #dc3545; color: white; border-color: #dc3545;">Clear Logs</button>';
+    
     echo '</form>';
 
     $table = new TM_Sync_Log_Table();
@@ -127,4 +162,41 @@ function tm_sync_page_logs() {
     $table->display();
 
     echo '</div>';
+    
+    // JavaScript for clear logs button
+    ?>
+    <script type="text/javascript">
+    document.addEventListener('DOMContentLoaded', function() {
+        const clearBtn = document.getElementById('tm-sync-clear-logs-btn');
+        if (clearBtn) {
+            clearBtn.addEventListener('click', function() {
+                if (confirm('Are you sure you want to clear all logs?')) {
+                    fetch(ajaxurl, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/x-www-form-urlencoded',
+                        },
+                        body: new URLSearchParams({
+                            action: 'tm_sync_clear_logs',
+                            nonce: '<?php echo wp_create_nonce("tm_sync_settings_nonce"); ?>'
+                        })
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            alert('Logs cleared successfully');
+                            location.reload();
+                        } else {
+                            alert('Failed to clear logs: ' + (data.data || 'Unknown error'));
+                        }
+                    })
+                    .catch(error => {
+                        alert('Error: ' + error.message);
+                    });
+                }
+            });
+        }
+    });
+    </script>
+    <?php
 }
