@@ -6,6 +6,10 @@ require_once TMS_PLUGIN_DIR . 'includes/sync/folder-discovery.php';
 require_once TMS_PLUGIN_DIR . 'includes/sync/generic-image-sync.php';
 require_once TMS_PLUGIN_DIR . 'includes/sync/advertiser-sync.php';
 require_once TMS_PLUGIN_DIR . 'includes/sync/board-member-sync.php';
+require_once TMS_PLUGIN_DIR . 'includes/sync/cast-sync.php';
+require_once TMS_PLUGIN_DIR . 'includes/sync/sponsors-sync.php';
+require_once TMS_PLUGIN_DIR . 'includes/sync/seasons-sync.php';
+require_once TMS_PLUGIN_DIR . 'includes/sync/shows-sync.php';
 
 /**
  * Display the manual sync admin page.
@@ -94,6 +98,18 @@ add_action('wp_ajax_tm_sync_run', function() {
             break;
         case 'board_member':
             $result = tm_sync_board_members($dry_run);
+            break;
+        case 'cast':
+            $result = tm_sync_cast($dry_run);
+            break;
+        case 'sponsor':
+            $result = tm_sync_sponsors($dry_run);
+            break;
+        case 'season':
+            $result = tm_sync_seasons($dry_run);
+            break;
+        case 'show':
+            $result = tm_sync_shows($dry_run);
             break;
         default:
             $result = 'Unknown CPT type: ' . $cpt;
