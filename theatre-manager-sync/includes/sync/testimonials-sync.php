@@ -52,8 +52,9 @@ function tm_sync_process_testimonial($item, $dry_run = false) {
         $comment = trim($fields['Comment'] ?? $fields['Testimonial'] ?? '');
         
         // Extract rating from Ratingnumber field (type: number)
-        // Also check fallback field names for compatibility
-        $rating_value = $fields['Ratingnumber'] ?? $fields['Rating'] ?? $fields['Rate'] ?? 0;
+        // SharePoint can return numbers in various formats
+        $rating_value = $fields['Ratingnumber'] ?? $fields['Rating'] ?? $fields['Rate'] ?? null;
+        
         tm_sync_log('debug', 'Rating extraction details', [
             'found_in_Ratingnumber' => isset($fields['Ratingnumber']),
             'Ratingnumber_value' => json_encode($fields['Ratingnumber'] ?? 'NOT_FOUND'),
@@ -61,21 +62,41 @@ function tm_sync_process_testimonial($item, $dry_run = false) {
             'raw_rating_type' => gettype($rating_value)
         ]);
         
-        if (is_array($rating_value) || is_object($rating_value)) {
+        $rating = 0;
+        
+        // Handle different types of rating values from SharePoint
+        if ($rating_value === null || $rating_value === '') {
+            $rating = 0;
+            tm_sync_log('debug', 'Rating value is null or empty', ['rating' => $rating]);
+        } elseif (is_array($rating_value) || is_object($rating_value)) {
             // If it's an object/array, try to get the numeric value property
             $rating = intval($rating_value['value'] ?? $rating_value->value ?? 0);
-            tm_sync_log('debug', 'Extracted rating from object/array', ['rating' => $rating]);
-        } else {
+            tm_sync_log('debug', 'Extracted rating from object/array', ['rating' => $rating, 'value_property' => json_encode($rating_value['value'] ?? $rating_value->value ?? null)]);
+        } elseif (is_numeric($rating_value)) {
+            // Direct numeric value (string or int)
             $rating = intval($rating_value);
-            tm_sync_log('debug', 'Extracted rating as simple value', ['original' => $rating_value, 'converted' => $rating]);
+            tm_sync_log('debug', 'Extracted rating as numeric value', ['original' => $rating_value, 'original_type' => gettype($rating_value), 'converted' => $rating]);
+        } else {
+            // Try to extract number from string
+            if (preg_match('/\d+/', $rating_value, $matches)) {
+                $rating = intval($matches[0]);
+                tm_sync_log('debug', 'Extracted rating from string using regex', ['original' => $rating_value, 'extracted' => $rating]);
+            } else {
+                tm_sync_log('warning', 'Could not extract numeric rating from value', ['value' => $rating_value, 'type' => gettype($rating_value)]);
+                $rating = 0;
+            }
         }
         
         // Ensure rating is within 1-5 range for star display
+        // If rating is 0, log it as a problem but don't clamp it away
         $original_rating = $rating;
-        $rating = max(1, min(5, $rating));
-        if ($original_rating !== $rating) {
-            tm_sync_log('warning', 'Rating was outside 1-5 range, clamped', ['original' => $original_rating, 'clamped' => $rating]);
+        if ($rating > 0) {
+            $rating = max(1, min(5, $rating));
         }
+        if ($original_rating !== $rating) {
+            tm_sync_log('warning', 'Rating was adjusted', ['original' => $original_rating, 'adjusted' => $rating]);
+        }
+        tm_sync_log('debug', 'Final rating value', ['rating' => $rating]);
 
         tm_sync_log('debug', 'Extracted fields', ['sp_id' => $sp_id, 'name' => $name, 'rating' => $rating, 'raw_rating' => json_encode($rating_value), 'available_fields' => array_keys($fields)]);
 
