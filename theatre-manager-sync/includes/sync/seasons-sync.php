@@ -107,9 +107,11 @@ function tm_sync_process_season($item, $dry_run = false) {
         };
         
         // Try both named fields and generic field_X names
+        // NOTE: SharePoint sometimes returns field names URL-encoded
+        // _x0033__x002d_upFront is "3-upFront", _x0033__x002d_upBack is "3-upBack"
         $website_banner_url = $extract_url($fields['WebsiteBanner'] ?? $fields['field_6'] ?? '');
-        $image_front_url = $extract_url($fields['3-upFront'] ?? $fields['field_7'] ?? '');
-        $image_back_url = $extract_url($fields['3-upBack'] ?? $fields['field_8'] ?? '');
+        $image_front_url = $extract_url($fields['3-upFront'] ?? $fields['_x0033__x002d_upFront'] ?? $fields['field_7'] ?? '');
+        $image_back_url = $extract_url($fields['3-upBack'] ?? $fields['_x0033__x002d_upBack'] ?? $fields['field_8'] ?? '');
         $sm_square_url = $extract_url($fields['SMSquare'] ?? $fields['field_9'] ?? '');
         $sm_portrait_url = $extract_url($fields['SMPortrait'] ?? $fields['field_10'] ?? '');
 
@@ -123,8 +125,8 @@ function tm_sync_process_season($item, $dry_run = false) {
         // Log the actual SharePoint field values for debugging
         error_log('[SEASONS_DEBUG] Raw SharePoint field values:');
         error_log('[SEASONS_DEBUG] - WebsiteBanner: ' . json_encode($fields['WebsiteBanner'] ?? 'NOT FOUND') . ' / field_6: ' . json_encode($fields['field_6'] ?? 'NOT FOUND'));
-        error_log('[SEASONS_DEBUG] - 3-upFront: ' . json_encode($fields['3-upFront'] ?? 'NOT FOUND') . ' / field_7: ' . json_encode($fields['field_7'] ?? 'NOT FOUND'));
-        error_log('[SEASONS_DEBUG] - 3-upBack: ' . json_encode($fields['3-upBack'] ?? 'NOT FOUND') . ' / field_8: ' . json_encode($fields['field_8'] ?? 'NOT FOUND'));
+        error_log('[SEASONS_DEBUG] - 3-upFront (alt: _x0033__x002d_upFront): ' . json_encode($fields['3-upFront'] ?? $fields['_x0033__x002d_upFront'] ?? 'NOT FOUND') . ' / field_7: ' . json_encode($fields['field_7'] ?? 'NOT FOUND'));
+        error_log('[SEASONS_DEBUG] - 3-upBack (alt: _x0033__x002d_upBack): ' . json_encode($fields['3-upBack'] ?? $fields['_x0033__x002d_upBack'] ?? 'NOT FOUND') . ' / field_8: ' . json_encode($fields['field_8'] ?? 'NOT FOUND'));
         error_log('[SEASONS_DEBUG] - SMSquare: ' . json_encode($fields['SMSquare'] ?? 'NOT FOUND') . ' / field_9: ' . json_encode($fields['field_9'] ?? 'NOT FOUND'));
         error_log('[SEASONS_DEBUG] - SMPortrait: ' . json_encode($fields['SMPortrait'] ?? 'NOT FOUND') . ' / field_10: ' . json_encode($fields['field_10'] ?? 'NOT FOUND'));
 
