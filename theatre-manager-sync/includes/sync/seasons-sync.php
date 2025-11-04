@@ -56,8 +56,30 @@ function tm_sync_process_season($item, $dry_run = false) {
         // - WebsiteBanner, 3-upFront, 3-upBack, SMSquare, SMPortrait for images
         // - IsCurrentSeason, IsUpcomingSeason for flags
         $name = trim($fields['SeasonName'] ?? $fields['Title'] ?? '');
-        $start_date = trim($fields['StartDate'] ?? '');
-        $end_date = trim($fields['EndDate'] ?? '');
+        
+        // Extract and format dates - SharePoint returns ISO 8601 format (2025-01-15T00:00:00Z)
+        // We need to convert to simple date format (2025-01-15) for WordPress date fields
+        $start_date_raw = $fields['StartDate'] ?? '';
+        $end_date_raw = $fields['EndDate'] ?? '';
+        
+        // Helper function to extract date in YYYY-MM-DD format from SharePoint date
+        $extract_date = function($date_field) {
+            if (empty($date_field)) return '';
+            // If it's an object or array, try to get the date value
+            if (is_object($date_field)) {
+                $date_field = isset($date_field->dateTime) ? $date_field->dateTime : (string)$date_field;
+            } elseif (is_array($date_field)) {
+                $date_field = $date_field['dateTime'] ?? $date_field[0] ?? '';
+            }
+            // Convert ISO 8601 (2025-01-15T00:00:00Z) to date only (2025-01-15)
+            if (preg_match('/^(\d{4}-\d{2}-\d{2})/', (string)$date_field, $matches)) {
+                return $matches[1];
+            }
+            return '';
+        };
+        
+        $start_date = $extract_date($start_date_raw);
+        $end_date = $extract_date($end_date_raw);
         $is_current_season = trim($fields['IsCurrentSeason'] ?? '');
         $is_upcoming_season = trim($fields['IsUpcomingSeason'] ?? '');
         
@@ -66,8 +88,10 @@ function tm_sync_process_season($item, $dry_run = false) {
         error_log('[SEASONS_DEBUG] - SeasonName field: ' . (isset($fields['SeasonName']) ? 'EXISTS' : 'NOT FOUND'));
         error_log('[SEASONS_DEBUG] - Title field: ' . (isset($fields['Title']) ? 'EXISTS' : 'NOT FOUND'));
         error_log('[SEASONS_DEBUG] - Final name value: "' . $name . '"');
-        error_log('[SEASONS_DEBUG] - Start date: "' . $start_date . '"');
-        error_log('[SEASONS_DEBUG] - End date: "' . $end_date . '"');
+        error_log('[SEASONS_DEBUG] - Start date (raw): "' . (is_string($start_date_raw) ? $start_date_raw : json_encode($start_date_raw)) . '"');
+        error_log('[SEASONS_DEBUG] - Start date (formatted): "' . $start_date . '"');
+        error_log('[SEASONS_DEBUG] - End date (raw): "' . (is_string($end_date_raw) ? $end_date_raw : json_encode($end_date_raw)) . '"');
+        error_log('[SEASONS_DEBUG] - End date (formatted): "' . $end_date . '"');
         error_log('[SEASONS_DEBUG] - Is current: "' . $is_current_season . '"');
         error_log('[SEASONS_DEBUG] - Is upcoming: "' . $is_upcoming_season . '"');
         
