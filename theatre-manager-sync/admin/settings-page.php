@@ -661,6 +661,7 @@ function tm_sync_render_settings_page() {
             });
         });
     });
+    </script>
     <?php
 }
 
