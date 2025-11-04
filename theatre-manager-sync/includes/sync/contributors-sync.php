@@ -44,12 +44,21 @@ function tm_sync_process_contributor($item, $dry_run = false) {
         // Extract the fields object from SharePoint response
         $fields = $item['fields'] ?? $item;
         
+        // Log all available field names to help debugging
+        $available_field_names = array_keys((array)$fields);
+        tm_sync_log('info', 'Available SharePoint field names', ['fields' => $available_field_names]);
+        
+        // IMPORTANT: Log this to error_log so it appears in WordPress debug logs
+        error_log('[CONTRIBUTORS_DEBUG] Complete SharePoint item: ' . json_encode($item, JSON_PRETTY_PRINT));
+        error_log('[CONTRIBUTORS_DEBUG] Fields array: ' . json_encode($fields, JSON_PRETTY_PRINT));
+        error_log('[CONTRIBUTORS_DEBUG] Field keys: ' . implode(', ', array_keys((array)$fields)));
+        
         $sp_id = $item['id'] ?? null;
         $name = trim($fields['Title'] ?? $fields['Name'] ?? '');
-        $company = trim($fields['Company'] ?? '');
-        $level = trim($fields['Level'] ?? $fields['ContributionLevel'] ?? '');
+        $company = trim($fields['Company'] ?? $fields['Title'] ?? '');
+        $level = trim($fields['Level'] ?? $fields['ContributorTier'] ?? $fields['Tier'] ?? '');
 
-        tm_sync_log('debug', 'Extracted fields', ['sp_id' => $sp_id, 'name' => $name, 'company' => $company, 'level' => $level]);
+        tm_sync_log('debug', 'Extracted fields', ['sp_id' => $sp_id, 'name' => $name, 'company' => $company, 'level' => $level, 'available_fields' => $available_field_names]);
 
         if (!$name || !$sp_id) {
             tm_sync_log('warning', 'Skipped item with missing name or ID.', ['sp_id' => $sp_id, 'name' => $name, 'fields_keys' => array_keys($fields)]);
