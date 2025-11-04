@@ -10,6 +10,8 @@ require_once TMS_PLUGIN_DIR . 'includes/sync/cast-sync.php';
 require_once TMS_PLUGIN_DIR . 'includes/sync/sponsors-sync.php';
 require_once TMS_PLUGIN_DIR . 'includes/sync/seasons-sync.php';
 require_once TMS_PLUGIN_DIR . 'includes/sync/shows-sync.php';
+require_once TMS_PLUGIN_DIR . 'includes/sync/contributors-sync.php';
+require_once TMS_PLUGIN_DIR . 'includes/sync/testimonials-sync.php';
 
 /**
  * Display the manual sync admin page.
@@ -110,6 +112,12 @@ add_action('wp_ajax_tm_sync_run', function() {
             break;
         case 'show':
             $result = tm_sync_shows($dry_run);
+            break;
+        case 'contributor':
+            $result = tm_sync_contributors($dry_run);
+            break;
+        case 'testimonial':
+            $result = tm_sync_testimonials($dry_run);
             break;
         default:
             $result = 'Unknown CPT type: ' . $cpt;

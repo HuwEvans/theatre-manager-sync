@@ -19,7 +19,7 @@ function tm_sync_fetch_sponsors_data() {
     tm_sync_log('debug', 'API Response received', ['items_type' => gettype($items), 'items_count' => is_array($items) ? count($items) : 0]);
 
     if ($items === null) {
-        tm_sync_log('error', 'API client returned null - credentials or list may be invalid');
+        tm_sync_log('error', 'API client returned null - credentials or list may be invalid. Sponsors list may not exist in SharePoint.');
         return null;
     }
 
@@ -29,7 +29,7 @@ function tm_sync_fetch_sponsors_data() {
     }
 
     if (empty($items)) {
-        tm_sync_log('warning', 'SharePoint Sponsors list is empty');
+        tm_sync_log('warning', 'SharePoint Sponsors list is empty or does not exist');
         return [];
     }
 

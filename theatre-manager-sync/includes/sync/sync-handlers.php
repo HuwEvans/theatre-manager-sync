@@ -10,6 +10,8 @@ require_once plugin_dir_path(__FILE__) . 'cast-sync.php';
 require_once plugin_dir_path(__FILE__) . 'sponsors-sync.php';
 require_once plugin_dir_path(__FILE__) . 'seasons-sync.php';
 require_once plugin_dir_path(__FILE__) . 'shows-sync.php';
+require_once plugin_dir_path(__FILE__) . 'contributors-sync.php';
+require_once plugin_dir_path(__FILE__) . 'testimonials-sync.php';
 
 
 tm_sync_log('INFO','Sync Handlers Loading');
@@ -47,6 +49,12 @@ add_action('wp_ajax_tm_sync_run', function() {
             break;
         case 'show':
             $summary = tm_sync_shows($dry_run);
+            break;
+        case 'contributor':
+            $summary = tm_sync_contributors($dry_run);
+            break;
+        case 'testimonial':
+            $summary = tm_sync_testimonials($dry_run);
             break;
         default:
             $summary = 'Unknown CPT type: ' . $cpt;
