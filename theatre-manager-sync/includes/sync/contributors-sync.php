@@ -54,18 +54,24 @@ function tm_sync_process_contributor($item, $dry_run = false) {
         error_log('[CONTRIBUTORS_DEBUG] Field keys: ' . implode(', ', array_keys((array)$fields)));
         
         $sp_id = $item['id'] ?? null;
-        $name = trim($fields['Title'] ?? $fields['Name'] ?? '');
-        $company = trim($fields['Company'] ?? $fields['Title'] ?? '');
-        $level = trim($fields['Level'] ?? $fields['ContributorTier'] ?? $fields['Tier'] ?? '');
+        // SharePoint field mapping:
+        // - Title field contains Company name
+        // - Name field contains contributor name
+        // - Tier field contains contribution level
+        $name = trim($fields['Name'] ?? '');
+        $company = trim($fields['Title'] ?? '');
+        $tier = trim($fields['Tier'] ?? '');
+        $donation_date = trim($fields['Date of Donation'] ?? '');
+        $donation_amount = trim($fields['Donation Amount'] ?? '');
 
-        tm_sync_log('debug', 'Extracted fields', ['sp_id' => $sp_id, 'name' => $name, 'company' => $company, 'level' => $level, 'available_fields' => $available_field_names]);
+        tm_sync_log('debug', 'Extracted fields', ['sp_id' => $sp_id, 'name' => $name, 'company' => $company, 'tier' => $tier, 'donation_date' => $donation_date, 'donation_amount' => $donation_amount, 'available_fields' => $available_field_names]);
 
         if (!$name || !$sp_id) {
             tm_sync_log('warning', 'Skipped item with missing name or ID.', ['sp_id' => $sp_id, 'name' => $name, 'fields_keys' => array_keys($fields)]);
             return false;
         }
 
-        tm_sync_log('debug', 'Processing contributor', ['name' => $name, 'company' => $company, 'sp_id' => $sp_id]);
+        tm_sync_log('debug', 'Processing contributor', ['name' => $name, 'company' => $company, 'tier' => $tier, 'sp_id' => $sp_id]);
 
         $existing = get_posts([
             'post_type' => 'contributor',
@@ -105,7 +111,15 @@ function tm_sync_process_contributor($item, $dry_run = false) {
         // Update contributor metadata
         update_post_meta($post_id, '_tm_name', $name);
         update_post_meta($post_id, '_tm_company', $company);
-        update_post_meta($post_id, '_tm_level', $level);
+        update_post_meta($post_id, '_tm_level', $tier);
+        update_post_meta($post_id, '_tm_donation_date', $donation_date);
+        update_post_meta($post_id, '_tm_donation_amount', $donation_amount);
+        
+        // Verify the data was saved
+        $saved_name = get_post_meta($post_id, '_tm_name', true);
+        $saved_company = get_post_meta($post_id, '_tm_company', true);
+        $saved_tier = get_post_meta($post_id, '_tm_level', true);
+        tm_sync_log('debug', 'Saved contributor metadata', ['post_id' => $post_id, 'name' => $saved_name, 'company' => $saved_company, 'tier' => $saved_tier]);
 
         tm_sync_log('debug', 'Finished processing contributor.', ['sp_id' => $sp_id, 'post_id' => $post_id]);
         return true;
