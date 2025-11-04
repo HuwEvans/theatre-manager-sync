@@ -1,0 +1,572 @@
+{
+  "schema": "1.0",
+  "description": "Theatre Manager SharePoint Lists Configuration",
+  "created": "2025-11-04",
+  "documentation": "This file documents all required SharePoint lists, columns, and their configurations for Theatre Manager Sync.",
+  "siteConfiguration": {
+    "description": "Configure these in Theatre Manager Sync plugin settings",
+    "siteUrl": "https://yourtenant.sharepoint.com/sites/yoursite",
+    "siteName": "Theatre Manager Site"
+  },
+  "lists": [
+    {
+      "name": "Advertisers",
+      "displayName": "Advertisers",
+      "description": "Business advertisements",
+      "template": "GenericList",
+      "columns": [
+        {
+          "name": "Title",
+          "displayName": "Title",
+          "type": "Text",
+          "required": true,
+          "indexed": true,
+          "notes": "Advertiser name (SharePoint index)"
+        },
+        {
+          "name": "Company",
+          "displayName": "Company",
+          "type": "Text",
+          "required": false,
+          "notes": "Company/business name"
+        },
+        {
+          "name": "Contact",
+          "displayName": "Contact",
+          "type": "Text",
+          "required": false,
+          "notes": "Contact person name"
+        },
+        {
+          "name": "Website",
+          "displayName": "Website",
+          "type": "Hyperlink",
+          "required": false,
+          "notes": "Company website URL"
+        },
+        {
+          "name": "Logo",
+          "displayName": "Logo",
+          "type": "Hyperlink",
+          "required": false,
+          "notes": "Logo image URL"
+        },
+        {
+          "name": "Description",
+          "displayName": "Description",
+          "type": "MultilineText",
+          "required": false,
+          "notes": "Advertiser description"
+        }
+      ]
+    },
+    {
+      "name": "Board Members",
+      "displayName": "Board Members",
+      "description": "Organization board members",
+      "template": "GenericList",
+      "columns": [
+        {
+          "name": "Title",
+          "displayName": "Title",
+          "type": "Text",
+          "required": true,
+          "indexed": true,
+          "notes": "Full name (SharePoint index - not synced)"
+        },
+        {
+          "name": "Name",
+          "displayName": "Name",
+          "type": "Text",
+          "required": true,
+          "notes": "Board member full name (synced field)"
+        },
+        {
+          "name": "Position",
+          "displayName": "Position",
+          "type": "Text",
+          "required": false,
+          "notes": "Title/position on board"
+        },
+        {
+          "name": "Photo",
+          "displayName": "Photo",
+          "type": "Hyperlink",
+          "required": false,
+          "notes": "Board member photograph URL"
+        },
+        {
+          "name": "Bio",
+          "displayName": "Bio",
+          "type": "MultilineText",
+          "required": false,
+          "notes": "Biography"
+        },
+        {
+          "name": "Contact",
+          "displayName": "Contact",
+          "type": "Text",
+          "required": false,
+          "notes": "Contact information"
+        },
+        {
+          "name": "Email",
+          "displayName": "Email",
+          "type": "Text",
+          "required": false,
+          "notes": "Email address"
+        }
+      ]
+    },
+    {
+      "name": "Sponsors",
+      "displayName": "Sponsors",
+      "description": "Event sponsors",
+      "template": "GenericList",
+      "columns": [
+        {
+          "name": "Title",
+          "displayName": "Title",
+          "type": "Text",
+          "required": true,
+          "indexed": true,
+          "notes": "Sponsor name"
+        },
+        {
+          "name": "Company",
+          "displayName": "Company",
+          "type": "Text",
+          "required": false,
+          "notes": "Company/business name"
+        },
+        {
+          "name": "SponsorshipLevel",
+          "displayName": "SponsorshipLevel",
+          "type": "Choice",
+          "required": true,
+          "choices": ["Platinum", "Gold", "Silver", "Bronze"],
+          "notes": "Sponsorship tier"
+        },
+        {
+          "name": "Website",
+          "displayName": "Website",
+          "type": "Hyperlink",
+          "required": false,
+          "notes": "Sponsor website URL"
+        },
+        {
+          "name": "Logo",
+          "displayName": "Logo",
+          "type": "Hyperlink",
+          "required": false,
+          "notes": "Sponsor logo URL"
+        },
+        {
+          "name": "Contact",
+          "displayName": "Contact",
+          "type": "Text",
+          "required": false,
+          "notes": "Contact person"
+        },
+        {
+          "name": "Email",
+          "displayName": "Email",
+          "type": "Text",
+          "required": false,
+          "notes": "Email address"
+        }
+      ]
+    },
+    {
+      "name": "Contributors",
+      "displayName": "Contributors",
+      "description": "Financial contributors",
+      "template": "GenericList",
+      "columns": [
+        {
+          "name": "Title",
+          "displayName": "Title",
+          "type": "Text",
+          "required": true,
+          "indexed": true,
+          "notes": "Index/identifier (not synced)"
+        },
+        {
+          "name": "Name",
+          "displayName": "Name",
+          "type": "Text",
+          "required": true,
+          "notes": "Contributor full name"
+        },
+        {
+          "name": "Company",
+          "displayName": "Company",
+          "type": "Text",
+          "required": false,
+          "notes": "Company/organization name (synced from Title in SharePoint)"
+        },
+        {
+          "name": "Tier",
+          "displayName": "Tier",
+          "type": "Choice",
+          "required": false,
+          "choices": ["Bronze", "Silver", "Gold", "Platinum"],
+          "notes": "Contribution level"
+        },
+        {
+          "name": "DonationDate",
+          "displayName": "DonationDate",
+          "type": "Date",
+          "required": false,
+          "notes": "Date of contribution"
+        },
+        {
+          "name": "DonationAmount",
+          "displayName": "DonationAmount",
+          "type": "Currency",
+          "required": false,
+          "notes": "Contribution amount"
+        },
+        {
+          "name": "Contact",
+          "displayName": "Contact",
+          "type": "Text",
+          "required": false,
+          "notes": "Contact information"
+        },
+        {
+          "name": "Email",
+          "displayName": "Email",
+          "type": "Text",
+          "required": false,
+          "notes": "Email address"
+        }
+      ]
+    },
+    {
+      "name": "Testimonials",
+      "displayName": "Testimonials",
+      "description": "Customer testimonials",
+      "template": "GenericList",
+      "columns": [
+        {
+          "name": "Title",
+          "displayName": "Title",
+          "type": "Text",
+          "required": true,
+          "indexed": true,
+          "notes": "Testimonial title/summary"
+        },
+        {
+          "name": "Comment",
+          "displayName": "Comment",
+          "type": "MultilineText",
+          "required": true,
+          "notes": "Full testimonial text"
+        },
+        {
+          "name": "RatingNumber",
+          "displayName": "RatingNumber",
+          "type": "Number",
+          "required": true,
+          "validValues": [1, 2, 3, 4, 5],
+          "notes": "Rating: 1-5 (displays as stars)"
+        },
+        {
+          "name": "Author",
+          "displayName": "Author",
+          "type": "Text",
+          "required": true,
+          "notes": "Testimonial author name"
+        },
+        {
+          "name": "AuthorTitle",
+          "displayName": "AuthorTitle",
+          "type": "Text",
+          "required": false,
+          "notes": "Author title/role"
+        },
+        {
+          "name": "AuthorCompany",
+          "displayName": "AuthorCompany",
+          "type": "Text",
+          "required": false,
+          "notes": "Author company"
+        },
+        {
+          "name": "Date",
+          "displayName": "Date",
+          "type": "Date",
+          "required": false,
+          "notes": "Testimonial date"
+        },
+        {
+          "name": "Approved",
+          "displayName": "Approved",
+          "type": "Choice",
+          "required": false,
+          "choices": ["Yes", "No"],
+          "notes": "Approved for display?"
+        }
+      ]
+    },
+    {
+      "name": "Seasons",
+      "displayName": "Seasons",
+      "description": "Theatre seasons",
+      "template": "GenericList",
+      "dependsOn": [],
+      "columns": [
+        {
+          "name": "Title",
+          "displayName": "Title",
+          "type": "Text",
+          "required": false,
+          "indexed": true,
+          "notes": "Index identifier (not primary)"
+        },
+        {
+          "name": "SeasonName",
+          "displayName": "SeasonName",
+          "type": "Text",
+          "required": true,
+          "notes": "Season name/year (e.g., 'Fall 2025')"
+        },
+        {
+          "name": "StartDate",
+          "displayName": "StartDate",
+          "type": "Date",
+          "required": false,
+          "notes": "Season start date"
+        },
+        {
+          "name": "EndDate",
+          "displayName": "EndDate",
+          "type": "Date",
+          "required": false,
+          "notes": "Season end date"
+        },
+        {
+          "name": "IsCurrentSeason",
+          "displayName": "IsCurrentSeason",
+          "type": "Choice",
+          "required": false,
+          "choices": ["Yes", "No"],
+          "notes": "Is this the current season?"
+        },
+        {
+          "name": "IsUpcomingSeason",
+          "displayName": "IsUpcomingSeason",
+          "type": "Choice",
+          "required": false,
+          "choices": ["Yes", "No"],
+          "notes": "Is this an upcoming season?"
+        },
+        {
+          "name": "WebsireBanner",
+          "displayName": "WebsireBanner",
+          "type": "Hyperlink",
+          "required": false,
+          "notes": "Website banner image URL"
+        },
+        {
+          "name": "3-upFront",
+          "displayName": "3-upFront",
+          "type": "Hyperlink",
+          "required": false,
+          "notes": "3-up front image (season lineup)"
+        },
+        {
+          "name": "3-upBack",
+          "displayName": "3-upBack",
+          "type": "Hyperlink",
+          "required": false,
+          "notes": "3-up back image (season lineup)"
+        },
+        {
+          "name": "SMSquare",
+          "displayName": "SMSquare",
+          "type": "Hyperlink",
+          "required": false,
+          "notes": "Social media square image"
+        },
+        {
+          "name": "SMPortrait",
+          "displayName": "SMPortrait",
+          "type": "Hyperlink",
+          "required": false,
+          "notes": "Social media portrait image"
+        },
+        {
+          "name": "Description",
+          "displayName": "Description",
+          "type": "MultilineText",
+          "required": false,
+          "notes": "Season description"
+        }
+      ]
+    },
+    {
+      "name": "Shows",
+      "displayName": "Shows",
+      "description": "Individual productions",
+      "template": "GenericList",
+      "dependsOn": ["Seasons"],
+      "columns": [
+        {
+          "name": "Title",
+          "displayName": "Title",
+          "type": "Text",
+          "required": true,
+          "indexed": true,
+          "notes": "Index/identifier (not synced)"
+        },
+        {
+          "name": "ShowName",
+          "displayName": "ShowName",
+          "type": "Text",
+          "required": true,
+          "notes": "Show/production name"
+        },
+        {
+          "name": "Author",
+          "displayName": "Author",
+          "type": "Text",
+          "required": false,
+          "notes": "Playwright/author name"
+        },
+        {
+          "name": "Director",
+          "displayName": "Director",
+          "type": "Text",
+          "required": false,
+          "notes": "Director name"
+        },
+        {
+          "name": "AssociateDirector",
+          "displayName": "AssociateDirector",
+          "type": "Text",
+          "required": false,
+          "notes": "Associate director name"
+        },
+        {
+          "name": "StartDate",
+          "displayName": "StartDate",
+          "type": "Date",
+          "required": false,
+          "notes": "Performance start date"
+        },
+        {
+          "name": "EndDate",
+          "displayName": "EndDate",
+          "type": "Date",
+          "required": false,
+          "notes": "Performance end date"
+        },
+        {
+          "name": "ShowDatesText",
+          "displayName": "ShowDatesText",
+          "type": "Text",
+          "required": false,
+          "notes": "Text description of show dates"
+        },
+        {
+          "name": "Description",
+          "displayName": "Description",
+          "type": "MultilineText",
+          "required": false,
+          "notes": "Show synopsis/description"
+        },
+        {
+          "name": "ProgramFileURL",
+          "displayName": "ProgramFileURL",
+          "type": "Hyperlink",
+          "required": false,
+          "notes": "Program PDF URL"
+        },
+        {
+          "name": "SeasonIDLookup",
+          "displayName": "SeasonIDLookup",
+          "type": "Lookup",
+          "required": true,
+          "sourceList": "Seasons",
+          "sourceColumn": "SeasonName",
+          "notes": "Link to Seasons list"
+        }
+      ]
+    },
+    {
+      "name": "Cast",
+      "displayName": "Cast",
+      "description": "Actor/character pairings",
+      "template": "GenericList",
+      "dependsOn": ["Shows"],
+      "columns": [
+        {
+          "name": "Title",
+          "displayName": "Title",
+          "type": "Text",
+          "required": true,
+          "indexed": true,
+          "notes": "Index/identifier (not synced)"
+        },
+        {
+          "name": "CharacterName",
+          "displayName": "CharacterName",
+          "type": "Text",
+          "required": true,
+          "notes": "Character name for the role"
+        },
+        {
+          "name": "ActorName",
+          "displayName": "ActorName",
+          "type": "Text",
+          "required": true,
+          "notes": "Actor/performer name"
+        },
+        {
+          "name": "Headshot",
+          "displayName": "Headshot",
+          "type": "Hyperlink",
+          "required": false,
+          "notes": "Actor headshot image URL"
+        },
+        {
+          "name": "ShowIDLookup",
+          "displayName": "ShowIDLookup",
+          "type": "Lookup",
+          "required": true,
+          "sourceList": "Shows",
+          "sourceColumn": "Title",
+          "notes": "Link to Shows list"
+        },
+        {
+          "name": "Notes",
+          "displayName": "Notes",
+          "type": "MultilineText",
+          "required": false,
+          "notes": "Additional notes"
+        }
+      ]
+    }
+  ],
+  "creationOrder": [
+    "Advertisers",
+    "Board Members",
+    "Contributors",
+    "Sponsors",
+    "Testimonials",
+    "Seasons",
+    "Shows",
+    "Cast"
+  ],
+  "notes": {
+    "fieldNames": "Field names are case-sensitive in SharePoint API - use exact names as shown",
+    "hyperlinks": "Use Hyperlink type for URLs instead of Attachment for better API compatibility",
+    "lookups": "Create source list before creating lookup field. Lookups are directional.",
+    "imageFields": "All image fields should use Hyperlink type with direct URLs to image files",
+    "choices": "Enter exact choice values - they are case-sensitive",
+    "relationships": "Shows relates to Seasons; Cast relates to Shows. Create in order.",
+    "migration": "When migrating data, create all lists first, then populate data, then run initial sync"
+  }
+}
