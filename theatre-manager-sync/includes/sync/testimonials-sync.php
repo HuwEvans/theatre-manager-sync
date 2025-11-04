@@ -47,6 +47,11 @@ function tm_sync_process_testimonial($item, $dry_run = false) {
         // Log the complete fields structure for debugging
         tm_sync_log('debug', 'Complete fields object', ['fields' => json_encode($fields, JSON_PRETTY_PRINT), 'field_keys' => array_keys((array)$fields)]);
         
+        // IMPORTANT: Log this to stdout/error_log so it appears in WordPress debug logs
+        error_log('[TESTIMONIALS_DEBUG] Complete SharePoint item: ' . json_encode($item, JSON_PRETTY_PRINT));
+        error_log('[TESTIMONIALS_DEBUG] Fields array: ' . json_encode($fields, JSON_PRETTY_PRINT));
+        error_log('[TESTIMONIALS_DEBUG] Field keys: ' . implode(', ', array_keys((array)$fields)));
+        
         $sp_id = $item['id'] ?? null;
         $name = trim($fields['Title'] ?? $fields['Name'] ?? '');
         $comment = trim($fields['Comment'] ?? $fields['Testimonial'] ?? '');

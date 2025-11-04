@@ -128,15 +128,15 @@ class TM_Graph_Client {
         error_log('[TM_Graph_Client] Resolved list ID: ' . $list_id);
 
         // Build endpoint with expand=fields to get all fields
-        // For some lists like Testimonials, we need to explicitly select the number fields
-        $endpoint = "sites/{$this->site_id}/lists/{$list_id}/items?expand=fields";
-        
-        // For Testimonials list, explicitly request RaitingNumber field (note correct casing)
+        // SharePoint's Graph API returns fields when we use expand=fields
+        // For Testimonials list specifically, we request all fields with no filtering
         if ($list_name === 'Testimonials') {
-            // SharePoint's Graph API requires $select for some fields
-            // We'll use expand=fields($select=Title,Comment,RaitingNumber)
-            $endpoint = "sites/{$this->site_id}/lists/{$list_id}/items?expand=fields(\$select=Title,Comment,Testimonial,RaitingNumber,Ratingnumber,Rating,Rate)";
-            error_log('[TM_Graph_Client] Using Testimonials-specific endpoint with explicit field selection');
+            // Use expand=fields without $select to get all fields from the list
+            // Some SharePoint number fields need to be fetched this way
+            $endpoint = "sites/{$this->site_id}/lists/{$list_id}/items?expand=fields";
+            error_log('[TM_Graph_Client] Using Testimonials endpoint: fetching all fields');
+        } else {
+            $endpoint = "sites/{$this->site_id}/lists/{$list_id}/items?expand=fields";
         }
         
         error_log('[TM_Graph_Client] Using endpoint: ' . $endpoint);
