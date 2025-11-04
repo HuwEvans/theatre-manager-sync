@@ -54,9 +54,13 @@ function tm_sync_process_sponsor($item, $dry_run = false) {
         error_log('[SPONSORS_DEBUG] Field keys: ' . implode(', ', array_keys((array)$fields)));
         
         $sp_id = $item['id'] ?? null;
-        $name = trim($fields['Title'] ?? $fields['Name'] ?? '');
+        // SharePoint field mapping for Sponsors:
+        // - Title field contains sponsor name
+        // - Company field contains company name
+        // - SponsorshipLevel field contains sponsorship level (Platinum/Gold/Silver/Bronze)
+        $name = trim($fields['Title'] ?? '');
         $company = trim($fields['Company'] ?? '');
-        $sponsor_level = trim($fields['SponsorLevel'] ?? $fields['Level'] ?? $fields['Tier'] ?? '');
+        $sponsor_level = trim($fields['SponsorshipLevel'] ?? $fields['SponsorLevel'] ?? $fields['Level'] ?? '');
         
         // Website can be a string or an object with Url property
         $website = '';
@@ -88,7 +92,7 @@ function tm_sync_process_sponsor($item, $dry_run = false) {
             }
         }
 
-        tm_sync_log('debug', 'Extracted fields', ['sp_id' => $sp_id, 'name' => $name, 'level' => $sponsor_level, 'all_fields' => $fields]);
+        tm_sync_log('debug', 'Extracted fields', ['sp_id' => $sp_id, 'name' => $name, 'company' => $company, 'level' => $sponsor_level, 'available_fields' => $available_field_names]);
 
         if (!$name || !$sp_id) {
             tm_sync_log('warning', 'Skipped item with missing name or ID.', ['sp_id' => $sp_id, 'name' => $name, 'fields_keys' => array_keys($fields), 'full_item' => $item]);
