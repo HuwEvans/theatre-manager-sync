@@ -47,9 +47,17 @@ function tm_sync_process_testimonial($item, $dry_run = false) {
         $sp_id = $item['id'] ?? null;
         $name = trim($fields['Title'] ?? $fields['Name'] ?? '');
         $comment = trim($fields['Comment'] ?? $fields['Testimonial'] ?? '');
-        $rating = intval($fields['Rating'] ?? $fields['Rate'] ?? 0);
+        
+        // Extract rating - handle both simple values and complex objects
+        $rating_value = $fields['Rating'] ?? $fields['Rate'] ?? 0;
+        if (is_array($rating_value) || is_object($rating_value)) {
+            // If it's an object/array, try to get the numeric value property
+            $rating = intval($rating_value['value'] ?? $rating_value->value ?? 0);
+        } else {
+            $rating = intval($rating_value);
+        }
 
-        tm_sync_log('debug', 'Extracted fields', ['sp_id' => $sp_id, 'name' => $name, 'rating' => $rating, 'available_fields' => array_keys($fields)]);
+        tm_sync_log('debug', 'Extracted fields', ['sp_id' => $sp_id, 'name' => $name, 'rating' => $rating, 'raw_rating' => json_encode($rating_value), 'available_fields' => array_keys($fields)]);
 
         if (!$name || !$sp_id) {
             tm_sync_log('warning', 'Skipped item with missing name or ID.', ['sp_id' => $sp_id, 'name' => $name, 'fields_keys' => array_keys($fields)]);
@@ -97,6 +105,10 @@ function tm_sync_process_testimonial($item, $dry_run = false) {
         update_post_meta($post_id, '_tm_name', $name);
         update_post_meta($post_id, '_tm_comment', $comment);
         update_post_meta($post_id, '_tm_rating', $rating);
+        
+        // Verify the rating was saved
+        $saved_rating = get_post_meta($post_id, '_tm_rating', true);
+        tm_sync_log('debug', 'Saved testimonial metadata', ['post_id' => $post_id, 'name' => $name, 'rating' => $rating, 'saved_rating' => $saved_rating]);
 
         tm_sync_log('debug', 'Finished processing testimonial.', ['sp_id' => $sp_id, 'post_id' => $post_id]);
         return true;
