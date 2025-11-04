@@ -46,8 +46,18 @@ function tm_sync_process_sponsor($item, $dry_run = false) {
         
         $sp_id = $item['id'] ?? null;
         $name = trim($fields['Title'] ?? '');
-        $sponsor_level = trim($fields['SponsorLevel'] ?? $fields['Level'] ?? '');
-        $website = trim($fields['Website'] ?? '');
+        $company = trim($fields['Company'] ?? '');
+        $sponsor_level = trim($fields['SponsorshipLevel'] ?? $fields['SponsorLevel'] ?? $fields['Level'] ?? '');
+        
+        // Website can be a string or an object with Url property
+        $website = '';
+        if (isset($fields['Website'])) {
+            if (is_array($fields['Website']) || is_object($fields['Website'])) {
+                $website = $fields['Website']['Url'] ?? $fields['Website']->Url ?? '';
+            } else {
+                $website = $fields['Website'];
+            }
+        }
         
         // Logo can be a string or an object with Url property
         $logo_url = '';
@@ -59,7 +69,7 @@ function tm_sync_process_sponsor($item, $dry_run = false) {
             }
         }
         
-        // Banner can be a string or an object with Url property
+        // Banner can be a string or an object with Url property (may not exist in all lists)
         $banner_url = '';
         if (isset($fields['Banner'])) {
             if (is_array($fields['Banner']) || is_object($fields['Banner'])) {
@@ -116,7 +126,9 @@ function tm_sync_process_sponsor($item, $dry_run = false) {
         // Update sponsor metadata
         update_post_meta($post_id, '_tm_name', $name);
         update_post_meta($post_id, '_tm_sponsor_level', $sponsor_level);
-        update_post_meta($post_id, '_tm_website', $website);
+        if (!empty($website)) {
+            update_post_meta($post_id, '_tm_website', $website);
+        }
 
         // Get access token for image syncing
         if (!class_exists('TM_Graph_Client')) {
@@ -187,6 +199,11 @@ function tm_sync_sponsors($dry_run = false) {
     if (empty($items)) {
         tm_sync_log('warning', 'No items in Sponsors list.');
         return 'Sync complete: 0 sponsors (list is empty).';
+    }
+
+    // Log the first item's complete structure for debugging
+    if (!empty($items[0])) {
+        tm_sync_log('info', 'First sponsor item structure for debugging:', ['item' => $items[0]]);
     }
 
     $count = 0;
