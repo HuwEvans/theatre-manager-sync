@@ -44,10 +44,22 @@ function tm_sync_process_season($item, $dry_run = false) {
         // Extract the fields object from SharePoint response
         $fields = $item['fields'] ?? $item;
         
+        // Log all available fields for debugging
+        error_log('[SEASONS_DEBUG] Complete SharePoint item: ' . json_encode($item, JSON_PRETTY_PRINT));
+        error_log('[SEASONS_DEBUG] Fields array: ' . json_encode($fields, JSON_PRETTY_PRINT));
+        error_log('[SEASONS_DEBUG] Field keys: ' . implode(', ', array_keys((array)$fields)));
+        
         $sp_id = $item['id'] ?? null;
-        $name = trim($fields['Title'] ?? $fields['SeasonName'] ?? '');
+        // SharePoint field mapping for Seasons:
+        // - SeasonName contains season name (fallback to Title)
+        // - StartDate, EndDate for dates
+        // - WebsireBanner, 3-upFront, 3-upBack, SMSquare, SMPortrait for images
+        // - IsCurrentSeason, IsUpcomingSeason for flags
+        $name = trim($fields['SeasonName'] ?? $fields['Title'] ?? '');
         $start_date = trim($fields['StartDate'] ?? '');
         $end_date = trim($fields['EndDate'] ?? '');
+        $is_current_season = trim($fields['IsCurrentSeason'] ?? '');
+        $is_upcoming_season = trim($fields['IsUpcomingSeason'] ?? '');
         
         // Helper function to extract URL from hyperlink/image field
         $extract_url = function($field) {
@@ -58,11 +70,15 @@ function tm_sync_process_season($item, $dry_run = false) {
             return '';
         };
         
-        $image_front_url = $extract_url($fields['ImageFront'] ?? $fields['Front'] ?? '');
-        $image_back_url = $extract_url($fields['ImageBack'] ?? $fields['Back'] ?? '');
-        $social_banner_url = $extract_url($fields['SocialBanner'] ?? $fields['Banner'] ?? '');
+        $website_banner_url = $extract_url($fields['WebsireBanner'] ?? '');
+        $image_front_url = $extract_url($fields['3-upFront'] ?? '');
+        $image_back_url = $extract_url($fields['3-upBack'] ?? '');
+        $sm_square_url = $extract_url($fields['SMSquare'] ?? '');
+        $sm_portrait_url = $extract_url($fields['SMPortrait'] ?? '');
 
-        tm_sync_log('debug', 'Extracted fields', ['sp_id' => $sp_id, 'name' => $name, 'start_date' => $start_date]);
+        error_log('[SEASONS_DEBUG] Extracted fields: name=' . $name . ', start=' . $start_date . ', end=' . $end_date . ', current=' . $is_current_season . ', upcoming=' . $is_upcoming_season);
+
+        tm_sync_log('debug', 'Extracted fields', ['sp_id' => $sp_id, 'name' => $name, 'start_date' => $start_date, 'is_current' => $is_current_season, 'is_upcoming' => $is_upcoming_season]);
 
         if (!$name || !$sp_id) {
             tm_sync_log('warning', 'Skipped item with missing name or ID.', ['sp_id' => $sp_id, 'name' => $name, 'fields_keys' => array_keys($fields)]);
@@ -110,6 +126,17 @@ function tm_sync_process_season($item, $dry_run = false) {
         update_post_meta($post_id, '_tm_season_name', $name);
         update_post_meta($post_id, '_tm_season_start_date', $start_date);
         update_post_meta($post_id, '_tm_season_end_date', $end_date);
+        update_post_meta($post_id, '_tm_season_is_current', $is_current_season);
+        update_post_meta($post_id, '_tm_season_is_upcoming', $is_upcoming_season);
+        
+        // Store all image URLs - images will be synced below
+        // _tm_season_image_front and _tm_season_image_back are synced via tm_sync_image_for_post
+        // Store additional images
+        update_post_meta($post_id, '_tm_season_social_banner', $website_banner_url);
+        update_post_meta($post_id, '_tm_season_sm_square', $sm_square_url);
+        update_post_meta($post_id, '_tm_season_sm_portrait', $sm_portrait_url);
+        
+        error_log('[SEASONS_DEBUG] Saved metadata for season: name=' . $name . ', post_id=' . $post_id);
 
         // Get access token for image syncing
         if (!class_exists('TM_Graph_Client')) {
@@ -155,16 +182,48 @@ function tm_sync_process_season($item, $dry_run = false) {
                     );
                 }
                 
-                // Sync social banner
-                if ($social_banner_url) {
-                    $banner_filename = basename($social_banner_url);
+                // Sync social banner / website banner
+                if ($website_banner_url) {
+                    $banner_filename = basename($website_banner_url);
                     tm_sync_image_for_post(
                         $post_id,
                         $banner_filename,
-                        $social_banner_url,
+                        $website_banner_url,
                         '_tm_season_social_banner',
                         $sp_id,
                         'social_banner',
+                        $site_id,
+                        $image_media_list_id,
+                        $token
+                    );
+                }
+                
+                // Sync SM Square image
+                if ($sm_square_url) {
+                    $square_filename = basename($sm_square_url);
+                    tm_sync_image_for_post(
+                        $post_id,
+                        $square_filename,
+                        $sm_square_url,
+                        '_tm_season_sm_square',
+                        $sp_id,
+                        'sm_square',
+                        $site_id,
+                        $image_media_list_id,
+                        $token
+                    );
+                }
+                
+                // Sync SM Portrait image
+                if ($sm_portrait_url) {
+                    $portrait_filename = basename($sm_portrait_url);
+                    tm_sync_image_for_post(
+                        $post_id,
+                        $portrait_filename,
+                        $sm_portrait_url,
+                        '_tm_season_sm_portrait',
+                        $sp_id,
+                        'sm_portrait',
                         $site_id,
                         $image_media_list_id,
                         $token

@@ -44,12 +44,29 @@ function tm_sync_process_show($item, $dry_run = false) {
         // Extract the fields object from SharePoint response
         $fields = $item['fields'] ?? $item;
         
+        // Log all available fields for debugging
+        error_log('[SHOWS_DEBUG] Complete SharePoint item: ' . json_encode($item, JSON_PRETTY_PRINT));
+        error_log('[SHOWS_DEBUG] Fields array: ' . json_encode($fields, JSON_PRETTY_PRINT));
+        error_log('[SHOWS_DEBUG] Field keys: ' . implode(', ', array_keys((array)$fields)));
+        
         $sp_id = $item['id'] ?? null;
-        $name = trim($fields['Title'] ?? $fields['ShowName'] ?? '');
+        // SharePoint field mapping for Shows:
+        // - ShowName contains show name (fallback to Title)
+        // - Author, Director, AssociateDirector for people
+        // - StartDate, EndDate, ShowDatesText for dates
+        // - Description (synopsis), ProgramFileURL
+        // - SeasonIDLookup links to season
+        $name = trim($fields['ShowName'] ?? $fields['Title'] ?? '');
         $author = trim($fields['Author'] ?? '');
-        $synopsis = trim($fields['Synopsis'] ?? '');
         $director = trim($fields['Director'] ?? '');
-        $genre = trim($fields['Genre'] ?? '');
+        $associate_director = trim($fields['AssociateDirector'] ?? '');
+        $start_date = trim($fields['StartDate'] ?? '');
+        $end_date = trim($fields['EndDate'] ?? '');
+        $show_dates_text = trim($fields['ShowDatesText'] ?? '');
+        $description = trim($fields['Description'] ?? '');
+        $program_file_url = trim($fields['ProgramFileURL'] ?? '');
+        $season_lookup = trim($fields['SeasonIDLookup'] ?? '');
+        $season_lookup_name = trim($fields['SeasonIDLookupSeasonName'] ?? '');
         
         // Helper function to extract URL from hyperlink/image field
         $extract_url = function($field) {
@@ -60,9 +77,11 @@ function tm_sync_process_show($item, $dry_run = false) {
             return '';
         };
         
-        $sm_image_url = $extract_url($fields['SMImage'] ?? $fields['Image'] ?? $fields['SmallMediumImage'] ?? '');
+        // Note: Shows don't have image field in SharePoint yet, but keeping extract_url for future use
 
-        tm_sync_log('debug', 'Extracted fields', ['sp_id' => $sp_id, 'name' => $name, 'author' => $author]);
+        error_log('[SHOWS_DEBUG] Extracted fields: name=' . $name . ', author=' . $author . ', director=' . $director . ', season=' . $season_lookup_name);
+
+        tm_sync_log('debug', 'Extracted fields', ['sp_id' => $sp_id, 'name' => $name, 'author' => $author, 'director' => $director, 'season' => $season_lookup_name]);
 
         if (!$name || !$sp_id) {
             tm_sync_log('warning', 'Skipped item with missing name or ID.', ['sp_id' => $sp_id, 'name' => $name, 'fields_keys' => array_keys($fields)]);
@@ -109,38 +128,34 @@ function tm_sync_process_show($item, $dry_run = false) {
         // Update show metadata
         update_post_meta($post_id, '_tm_show_name', $name);
         update_post_meta($post_id, '_tm_show_author', $author);
-        update_post_meta($post_id, '_tm_show_synopsis', $synopsis);
         update_post_meta($post_id, '_tm_show_director', $director);
-        update_post_meta($post_id, '_tm_show_genre', $genre);
-
-        // Get access token for image syncing
-        if (!class_exists('TM_Graph_Client')) {
-            tm_sync_log('warning', 'TM_Graph_Client not available for image sync');
-        } else {
-            $client = new TM_Graph_Client();
-            $token = $client->get_access_token_public();
-            
-            if ($token) {
-                // Get Site and List IDs
-                $site_id = 'miltonplayers.sharepoint.com,9122b47c-2748-446f-820e-ab3bc46b80d0,5d9211a6-6d28-4644-ad40-82fe3972fbf1';
-                $image_media_list_id = '36cd8ce2-6611-401a-ae0c-20dd4abcf36b';
-                
-                // Sync small/medium image
-                if ($sm_image_url) {
-                    $sm_filename = basename($sm_image_url);
-                    tm_sync_image_for_post(
-                        $post_id,
-                        $sm_filename,
-                        $sm_image_url,
-                        '_tm_show_sm_image',
-                        $sp_id,
-                        'sm_image',
-                        $site_id,
-                        $image_media_list_id,
-                        $token
-                    );
-                }
+        update_post_meta($post_id, '_tm_show_associate_director', $associate_director);
+        update_post_meta($post_id, '_tm_show_synopsis', $description);  // Description from SharePoint maps to synopsis
+        update_post_meta($post_id, '_tm_show_show_dates', $show_dates_text);
+        update_post_meta($post_id, '_tm_show_start_date', $start_date);
+        update_post_meta($post_id, '_tm_show_end_date', $end_date);
+        update_post_meta($post_id, '_tm_show_program_url', $program_file_url);
+        
+        // Link to season by name lookup - find the season post with matching name
+        if ($season_lookup_name) {
+            $season_post = get_posts([
+                'post_type' => 'season',
+                'title' => $season_lookup_name,
+                'numberposts' => 1
+            ]);
+            if (!empty($season_post)) {
+                update_post_meta($post_id, '_tm_show_season', $season_post[0]->ID);
             }
+        }
+        
+        error_log('[SHOWS_DEBUG] Saved metadata for show: name=' . $name . ', post_id=' . $post_id);
+
+        // Get access token for future image syncing if needed
+        if (!class_exists('TM_Graph_Client')) {
+            tm_sync_log('warning', 'TM_Graph_Client not available');
+        } else {
+            // Note: Show image fields not yet available in SharePoint
+            // If/when SMImage field is added to Shows list, image syncing can be added here
         }
 
         tm_sync_log('debug', 'Finished processing show.', ['sp_id' => $sp_id, 'post_id' => $post_id]);

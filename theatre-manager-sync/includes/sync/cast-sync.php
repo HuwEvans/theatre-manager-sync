@@ -44,22 +44,35 @@ function tm_sync_process_cast($item, $dry_run = false) {
         // Extract the fields object from SharePoint response
         $fields = $item['fields'] ?? $item;
         
-        $sp_id = $item['id'] ?? null;
-        $character_name = trim($fields['Character'] ?? $fields['Title'] ?? '');
-        $actor_name = trim($fields['Actor'] ?? '');
-        $show_name = trim($fields['Show'] ?? '');
+        // Log all available fields for debugging
+        error_log('[CAST_DEBUG] Complete SharePoint item: ' . json_encode($item, JSON_PRETTY_PRINT));
+        error_log('[CAST_DEBUG] Fields array: ' . json_encode($fields, JSON_PRETTY_PRINT));
+        error_log('[CAST_DEBUG] Field keys: ' . implode(', ', array_keys((array)$fields)));
         
-        // Picture can be a string or an object with Url property
+        $sp_id = $item['id'] ?? null;
+        // SharePoint field mapping for Cast:
+        // - CharacterName contains character name (fallback to Title)
+        // - ActorName contains actor/performer name
+        // - Headshot is the actor's picture
+        // - ShowIDLookup links to show, ShowIDLookupShowName is the show name
+        $character_name = trim($fields['CharacterName'] ?? $fields['Title'] ?? '');
+        $actor_name = trim($fields['ActorName'] ?? '');
+        $show_lookup = trim($fields['ShowIDLookup'] ?? '');
+        $show_lookup_name = trim($fields['ShowIDLookupShowName'] ?? '');
+        
+        // Picture/Headshot can be a string or an object with Url property
         $picture_url = '';
-        if (isset($fields['Picture'])) {
-            if (is_array($fields['Picture']) || is_object($fields['Picture'])) {
-                $picture_url = $fields['Picture']['Url'] ?? $fields['Picture']->Url ?? '';
+        if (isset($fields['Headshot'])) {
+            if (is_array($fields['Headshot']) || is_object($fields['Headshot'])) {
+                $picture_url = $fields['Headshot']['Url'] ?? $fields['Headshot']->Url ?? '';
             } else {
-                $picture_url = $fields['Picture'];
+                $picture_url = $fields['Headshot'];
             }
         }
 
-        tm_sync_log('debug', 'Extracted fields', ['sp_id' => $sp_id, 'character' => $character_name, 'actor' => $actor_name]);
+        error_log('[CAST_DEBUG] Extracted fields: character=' . $character_name . ', actor=' . $actor_name . ', show=' . $show_lookup_name . ', picture=' . ($picture_url ? 'yes' : 'no'));
+
+        tm_sync_log('debug', 'Extracted fields', ['sp_id' => $sp_id, 'character' => $character_name, 'actor' => $actor_name, 'show' => $show_lookup_name]);
 
         if (!$character_name || !$sp_id) {
             tm_sync_log('warning', 'Skipped item with missing character name or ID.', ['sp_id' => $sp_id, 'character' => $character_name, 'fields_keys' => array_keys($fields)]);
@@ -106,7 +119,20 @@ function tm_sync_process_cast($item, $dry_run = false) {
         // Update cast metadata
         update_post_meta($post_id, '_tm_cast_character_name', $character_name);
         update_post_meta($post_id, '_tm_cast_actor_name', $actor_name);
-        // Note: show_name would need to be linked to an actual show post ID, skipping for now
+        
+        // Link to show by name lookup - find the show post with matching name
+        if ($show_lookup_name) {
+            $show_post = get_posts([
+                'post_type' => 'show',
+                'title' => $show_lookup_name,
+                'numberposts' => 1
+            ]);
+            if (!empty($show_post)) {
+                update_post_meta($post_id, '_tm_cast_show', $show_post[0]->ID);
+            }
+        }
+        
+        error_log('[CAST_DEBUG] Saved metadata for cast member: character=' . $character_name . ', post_id=' . $post_id);
 
         if ($picture_url) {
             // Extract filename from URL
