@@ -153,13 +153,32 @@ function tm_sync_refresh_folder_cache() {
         return false;
     }
     
+    if (!class_exists('TM_Graph_Client')) {
+        tm_sync_log('error', 'TM_Graph_Client not available');
+        return false;
+    }
+    
     tm_sync_log('info', 'User initiated folder cache refresh');
-    $result = tm_sync_discover_all_folders();
+    
+    // Get access token
+    $client = new TM_Graph_Client();
+    $token = $client->get_access_token_public();
+    
+    if (!$token) {
+        tm_sync_log('error', 'Failed to get access token for folder discovery');
+        return false;
+    }
+    
+    // SharePoint site and list IDs (hard-coded from sync files)
+    $site_id = 'miltonplayers.sharepoint.com,9122b47c-2748-446f-820e-ab3bc46b80d0,5d9211a6-6d28-4644-ad40-82fe3972fbf1';
+    $image_media_list_id = '36cd8ce2-6611-401a-ae0c-20dd4abcf36b';
+    
+    $result = tm_sync_discover_all_folders($site_id, $image_media_list_id, $token);
     
     if ($result) {
-        tm_sync_log('info', 'Folder cache refresh completed successfully');
+        tm_sync_log('info', 'Folder cache refresh completed successfully', ['discovered_folders' => count($result)]);
     } else {
-        tm_sync_log('warning', 'Folder cache refresh encountered errors');
+        tm_sync_log('warning', 'Folder cache refresh encountered errors or no folders found');
     }
     
     return $result;

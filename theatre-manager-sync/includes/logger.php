@@ -5,6 +5,19 @@ const TM_SYNC_LOG_DIR = 'tm-sync/logs';
 const TM_SYNC_LOG_RETENTION_DAYS = 30;
 
 /**
+ * Get the full path to the log file for a given date.
+ *
+ * @param string|null $date Format: 'Y-m-d'. Defaults to today.
+ * @return string Absolute file path.
+ */
+function tm_logger_file_for_date( $date = null ) {
+    $date = $date ?: current_time('Y-m-d');
+    $uploads = wp_upload_dir();
+    $log_dir = trailingslashit($uploads['basedir']) . TM_SYNC_LOG_DIR;
+    return trailingslashit($log_dir) . "tm-sync-{$date}.log";
+}
+
+/**
  * Write a log entry to the TM Sync log file.
  *
  * @param string $level    Log level: debug, info, warning, error
@@ -22,9 +35,9 @@ function tm_sync_log($level, $message, $context = []) {
     // Normalize log level
     $level = strtoupper($level);
     
-    // Set up log file path
-    $log_dir = WP_CONTENT_DIR . '/tm-sync-logs';
-    $log_file = $log_dir . '/tm-sync.log';
+    // Set up log file path (use same location as logs-page expects)
+    $log_file = tm_logger_file_for_date();
+    $log_dir = dirname($log_file);
 
     // Initialize log directory if needed
     if (!$log_initialized) {
@@ -106,19 +119,5 @@ function tm_sync_prune_logs() {
         if (filemtime($file) < $cutoff) {
             @unlink($file);
         }
-    }
-}
-if ( ! function_exists('tm_logger_file_for_date') ) {
-    /**
-     * Get the full path to the log file for a given date.
-     *
-     * @param string|null $date Format: 'Y-m-d'. Defaults to today.
-     * @return string Absolute file path.
-     */
-    function tm_logger_file_for_date( $date = null ) {
-        $date = $date ?: current_time('Y-m-d');
-        $uploads = wp_upload_dir();
-        $log_dir = trailingslashit($uploads['basedir']) . TM_SYNC_LOG_DIR;
-        return trailingslashit($log_dir) . "tm-sync-{$date}.log";
     }
 }
