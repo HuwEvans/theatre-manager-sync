@@ -1,36 +1,25 @@
 <?php
 
-/**
- * Theatre Manager Sync - Admin Settings Page
- * 
- * Provides interface for:
- * - Viewing cached folder IDs
- * - Refreshing folder discovery cache
- * - Manual folder ID overrides
- * - Testing folder connections
- */
-
 tm_sync_log('INFO', 'Admin Settings File loading');
 
 /**
- * Register settings page in admin menu
+ * Add Settings submenu to TM Sync admin menu
  */
-function tm_sync_register_admin_menu() {
+function tm_sync_register_settings_submenu() {
     if (!is_admin()) return;
     
-    add_menu_page(
-        'TM Sync Settings',           // Page title
-        'TM Sync Settings',           // Menu title
-        'manage_options',             // Capability
-        'tm-sync-settings',           // Menu slug
-        'tm_sync_render_settings_page', // Callback
-        'dashicons-sync',             // Icon
-        80                            // Position
+    add_submenu_page(
+        'theatre-manager-sync',           // Parent menu slug
+        'TM Sync Settings',               // Page title
+        'Settings',                       // Menu title
+        'manage_options',                 // Capability
+        'tm-sync-settings',               // Menu slug
+        'tm_sync_render_settings_page'    // Callback
     );
     
-    tm_sync_log('debug', 'Registered TM Sync Settings admin menu');
+    tm_sync_log('debug', 'Registered TM Sync Settings submenu');
 }
-add_action('admin_menu', 'tm_sync_register_admin_menu');
+add_action('admin_menu', 'tm_sync_register_settings_submenu');
 
 /**
  * Register settings with WordPress Settings API
