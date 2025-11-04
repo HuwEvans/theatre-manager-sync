@@ -134,18 +134,35 @@ class TM_Graph_Client {
         // SharePoint's Graph API requires explicit field names in the select parameter
         $fields = $this->get_fields_for_list($list_name);
         
-        // Build the field list - do NOT urlencode the entire expand syntax
-        // Only urlencode individual field names if they have special characters
+        // Build the field list - urlencode field names that have special characters
         $field_list = implode(',', array_map('urlencode', $fields));
         
         // Build endpoint - expand=fields with explicit $select of field names
+        // Important: Don't urlencode the entire expand parameter, just individual field names
         // Format: expand=fields($select=field1,field2,field3)
         $endpoint = "sites/{$this->site_id}/lists/{$list_id}/items?expand=fields(\$select=" . $field_list . ")";
         
         error_log('[TM_Graph_Client] Using endpoint with fields: ' . $list_name);
         error_log('[TM_Graph_Client] Requesting fields: ' . implode(', ', $fields));
         error_log('[TM_Graph_Client] Full endpoint: ' . $endpoint);
+        
         $data = $this->request($endpoint);
+        
+        if (!$data) {
+            error_log('[TM_Graph_Client] No data returned from endpoint with field selection, trying fallback without field selection');
+            
+            // Fallback: try without explicit field selection
+            $fallback_endpoint = "sites/{$this->site_id}/lists/{$list_id}/items?expand=fields";
+            error_log('[TM_Graph_Client] Trying fallback endpoint: ' . $fallback_endpoint);
+            $data = $this->request($fallback_endpoint);
+            
+            if ($data) {
+                error_log('[TM_Graph_Client] Fallback succeeded - returned data');
+            } else {
+                error_log('[TM_Graph_Client] Fallback also failed - no data returned');
+                return null;
+            }
+        }
         
         if (!$data) {
             error_log('[TM_Graph_Client] No data returned from endpoint');
