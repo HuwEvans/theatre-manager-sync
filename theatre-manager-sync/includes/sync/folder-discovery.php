@@ -88,10 +88,12 @@ function tm_sync_clear_folder_cache() {
 }
 
 /**
- * Get folder ID from cache or discover it
+ * Get folder ID from cache, overrides, or discover it
  * 
- * First checks if folder ID is cached. If not, discovers it from SharePoint
- * and caches the result for future use.
+ * Priority order:
+ * 1. Manual overrides (if configured in admin)
+ * 2. Cached folder IDs (from previous discovery)
+ * 3. Auto-discovery from SharePoint
  * 
  * @param string $folder_name Folder name to find (e.g., "People")
  * @param string $site_id SharePoint site ID
@@ -105,18 +107,30 @@ function tm_sync_get_folder_id($folder_name, $site_id, $image_media_list_id, $to
         return null;
     }
 
-    // Check cache first
+    // TIER 1: Check manual overrides first (highest priority)
+    $overrides = get_option('tm_sync_folder_overrides', []);
+    if (isset($overrides[$folder_name])) {
+        tm_sync_log('debug', 'Using manual override for folder', [
+            'folder_name' => $folder_name,
+            'folder_id' => $overrides[$folder_name],
+            'source' => 'manual_override'
+        ]);
+        return $overrides[$folder_name];
+    }
+
+    // TIER 2: Check cache
     $cached_ids = tm_sync_get_cached_folder_ids();
     if (isset($cached_ids[$folder_name])) {
         tm_sync_log('debug', 'Using cached folder ID', [
             'folder_name' => $folder_name,
-            'folder_id' => $cached_ids[$folder_name]
+            'folder_id' => $cached_ids[$folder_name],
+            'source' => 'cache'
         ]);
         return $cached_ids[$folder_name];
     }
 
-    // Not in cache, discover from SharePoint
-    tm_sync_log('debug', 'Folder not in cache, discovering from SharePoint', [
+    // TIER 3: Auto-discovery
+    tm_sync_log('debug', 'Folder not in cache/overrides, discovering from SharePoint', [
         'folder_name' => $folder_name
     ]);
 
@@ -125,10 +139,15 @@ function tm_sync_get_folder_id($folder_name, $site_id, $image_media_list_id, $to
     if ($folder_id) {
         // Cache for future use
         tm_sync_cache_folder_id($folder_name, $folder_id);
+        tm_sync_log('info', 'Discovered and cached folder ID', [
+            'folder_name' => $folder_name,
+            'folder_id' => $folder_id,
+            'source' => 'auto_discovery'
+        ]);
         return $folder_id;
     }
 
-    tm_sync_log('warning', 'Folder not found in SharePoint', [
+    tm_sync_log('warning', 'Folder not found in SharePoint or overrides', [
         'folder_name' => $folder_name
     ]);
     return null;
