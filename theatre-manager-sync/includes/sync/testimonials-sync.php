@@ -51,6 +51,10 @@ function tm_sync_process_testimonial($item, $dry_run = false) {
         $name = trim($fields['Title'] ?? $fields['Name'] ?? '');
         $comment = trim($fields['Comment'] ?? $fields['Testimonial'] ?? '');
         
+        // Log all available field names to help debugging
+        $available_field_names = array_keys((array)$fields);
+        tm_sync_log('info', 'Available SharePoint field names', ['fields' => $available_field_names]);
+        
         // Extract rating from Ratingnumber field (type: number)
         // SharePoint can return numbers in various formats, try various field name combinations
         $rating_value = $fields['Ratingnumber'] ?? 
@@ -60,9 +64,13 @@ function tm_sync_process_testimonial($item, $dry_run = false) {
                        $fields['Stars'] ?? 
                        null;
         
+        // Check if Ratingnumber might be present but null
+        $ratingnumber_exists = array_key_exists('Ratingnumber', (array)$fields);
+        $ratingnumber_value = $ratingnumber_exists ? $fields['Ratingnumber'] : 'KEY_NOT_FOUND';
+        
         tm_sync_log('debug', 'Rating extraction details', [
-            'found_in_Ratingnumber' => isset($fields['Ratingnumber']),
-            'Ratingnumber_value' => json_encode($fields['Ratingnumber'] ?? 'NOT_FOUND'),
+            'Ratingnumber_key_exists' => $ratingnumber_exists ? 'YES' : 'NO',
+            'Ratingnumber_value' => json_encode($ratingnumber_value),
             'Ratingnumber_is_null' => $fields['Ratingnumber'] === null ? 'YES' : 'NO',
             'raw_rating_value' => json_encode($rating_value),
             'raw_rating_type' => gettype($rating_value),
