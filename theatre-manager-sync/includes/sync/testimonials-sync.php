@@ -55,23 +55,24 @@ function tm_sync_process_testimonial($item, $dry_run = false) {
         $available_field_names = array_keys((array)$fields);
         tm_sync_log('info', 'Available SharePoint field names', ['fields' => $available_field_names]);
         
-        // Extract rating from Ratingnumber field (type: number)
+        // Extract rating from RaitingNumber field (type: number) - note correct SharePoint casing
         // SharePoint can return numbers in various formats, try various field name combinations
-        $rating_value = $fields['Ratingnumber'] ?? 
+        $rating_value = $fields['RaitingNumber'] ?? 
+                       $fields['Ratingnumber'] ?? 
                        $fields['Rating Number'] ?? 
                        $fields['Rating'] ?? 
                        $fields['Rate'] ?? 
                        $fields['Stars'] ?? 
                        null;
         
-        // Check if Ratingnumber might be present but null
-        $ratingnumber_exists = array_key_exists('Ratingnumber', (array)$fields);
-        $ratingnumber_value = $ratingnumber_exists ? $fields['Ratingnumber'] : 'KEY_NOT_FOUND';
+        // Check if RaitingNumber might be present but null
+        $ratingnumber_exists = array_key_exists('RaitingNumber', (array)$fields);
+        $ratingnumber_value = $ratingnumber_exists ? $fields['RaitingNumber'] : 'KEY_NOT_FOUND';
         
         tm_sync_log('debug', 'Rating extraction details', [
-            'Ratingnumber_key_exists' => $ratingnumber_exists ? 'YES' : 'NO',
-            'Ratingnumber_value' => json_encode($ratingnumber_value),
-            'Ratingnumber_is_null' => $fields['Ratingnumber'] === null ? 'YES' : 'NO',
+            'RaitingNumber_key_exists' => $ratingnumber_exists ? 'YES' : 'NO',
+            'RaitingNumber_value' => json_encode($ratingnumber_value),
+            'RaitingNumber_is_null' => isset($fields['RaitingNumber']) && $fields['RaitingNumber'] === null ? 'YES' : 'NO',
             'raw_rating_value' => json_encode($rating_value),
             'raw_rating_type' => gettype($rating_value),
             'raw_rating_is_null' => $rating_value === null ? 'YES' : 'NO'
