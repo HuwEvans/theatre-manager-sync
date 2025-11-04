@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Theatre Manager Sync
  * Description: Sync SharePoint lists to Theatre Manager CPTs (one-way) via Microsoft Graph (App-only, Sites.Selected).
- * Version: 2.5
+ * Version: 2.6
  * Author: Huw Evans
  * Requires at least: 6.5
  * Requires PHP: 8.1
