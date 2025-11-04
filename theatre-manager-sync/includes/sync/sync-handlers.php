@@ -2,6 +2,8 @@
 if (!is_admin()) return;
 
 require_once plugin_dir_path(__FILE__) . '../api/class-tm-graph-client.php';
+require_once plugin_dir_path(__FILE__) . 'folder-discovery.php';
+require_once plugin_dir_path(__FILE__) . 'generic-image-sync.php';
 require_once plugin_dir_path(__FILE__) . 'advertiser-sync.php';
 require_once plugin_dir_path(__FILE__) . 'board-member-sync.php';
 

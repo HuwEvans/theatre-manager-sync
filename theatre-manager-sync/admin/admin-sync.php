@@ -2,6 +2,8 @@
 defined('ABSPATH') || exit;
 
 // Include required files
+require_once TMS_PLUGIN_DIR . 'includes/sync/folder-discovery.php';
+require_once TMS_PLUGIN_DIR . 'includes/sync/generic-image-sync.php';
 require_once TMS_PLUGIN_DIR . 'includes/sync/advertiser-sync.php';
 require_once TMS_PLUGIN_DIR . 'includes/sync/board-member-sync.php';
 
