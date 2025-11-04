@@ -134,26 +134,17 @@ class TM_Graph_Client {
         // SharePoint's Graph API requires explicit field names in the select parameter
         $fields = $this->get_fields_for_list($list_name);
         
-        // Build field list - construct the $select parameter properly
-        // Individual field names may be URL-encoded (e.g., '3-upFront' for field names with special chars)
-        $field_list = implode(',', array_map('urlencode', $fields));
+        // Build field list - do NOT urlencode individual field names
+        // SharePoint handles special characters in field names without encoding
+        $field_list = implode(',', $fields);
         
         // Build the expand=fields($select=...) parameter
-        // We need to properly construct this as a query parameter
-        // The expand parameter itself is: fields($select=field1,field2,field3)
-        // When used in a URL query string, this DOES need to be URL-encoded
-        $expand_value = 'fields($select=' . $field_list . ')';
-        
-        // URL encode the expand parameter value
-        $expand_encoded = urlencode($expand_value);
-        
-        // Build the final endpoint
-        $endpoint = "sites/{$this->site_id}/lists/{$list_id}/items?expand=" . $expand_encoded;
+        // DO NOT URL-encode the entire parameter - Graph API expects literal syntax
+        // Format: expand=fields($select=field1,field2,field3)
+        $endpoint = "sites/{$this->site_id}/lists/{$list_id}/items?expand=fields(\$select=" . $field_list . ")";
         
         error_log('[TM_Graph_Client] Using endpoint with fields: ' . $list_name);
         error_log('[TM_Graph_Client] Requesting fields: ' . implode(', ', $fields));
-        error_log('[TM_Graph_Client] Expand parameter (raw): ' . $expand_value);
-        error_log('[TM_Graph_Client] Expand parameter (encoded): ' . $expand_encoded);
         error_log('[TM_Graph_Client] Full endpoint: ' . $endpoint);
         
         $data = $this->request($endpoint);
@@ -309,7 +300,7 @@ class TM_Graph_Client {
             'Board Members' => ['Title', 'Name', 'Position', 'Photo', 'Bio', 'Contact', 'Email'],
             'Cast' => ['Title', 'CharacterName', 'ActorName', 'ShowIDLookup', 'ShowIDLookupShowName', 'Headshot', 'Notes'],
             'Contributors' => ['Title', 'Name', 'Company', 'Tier', 'DonationDate', 'DonationAmount', 'Contact', 'Email'],
-            'Seasons' => ['Title', 'SeasonName', 'StartDate', 'EndDate', 'IsCurrentSeason', 'IsUpcomingSeason', 'WebsireBanner', '3-upFront', '3-upBack', 'SMSquare', 'SMPortrait', 'Description'],
+            'Seasons' => ['Title', 'SeasonName', 'StartDate', 'EndDate', 'IsCurrentSeason', 'IsUpcomingSeason', 'WebsiteBanner', '3-upFront', '3-upBack', 'SMSquare', 'SMPortrait', 'Description'],
             'Shows' => ['Title', 'ShowName', 'Author', 'Director', 'AssociateDirector', 'StartDate', 'EndDate', 'ShowDatesText', 'Description', 'ProgramFileURL', 'SeasonIDLookup', 'SeasonIDLookupSeasonName'],
             'Sponsors' => ['Title', 'Company', 'SponsorshipLevel', 'Website', 'Logo', 'Contact', 'Email'],
             'Testimonials' => ['Title', 'Comment', 'RatingNumber', 'Author', 'AuthorTitle', 'AuthorCompany', 'Date', 'Approved'],

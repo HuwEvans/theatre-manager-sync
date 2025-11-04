@@ -147,7 +147,7 @@ The plugin uses a single SharePoint site. Configure the site ID in the plugin se
 | EndDate | Date/Time | No | Season end date |
 | IsCurrentSeason | Choice | No | Is this the current season? Yes/No |
 | IsUpcomingSeason | Choice | No | Is this an upcoming season? Yes/No |
-| WebsireBanner | Hyperlink | No | Website banner image |
+| WebsiteBanner | Hyperlink | No | Website banner image |
 | 3-upFront | Hyperlink | No | 3-up front image (season lineup) |
 | 3-upBack | Hyperlink | No | 3-up back image (season lineup) |
 | SMSquare | Hyperlink | No | Social media square image |

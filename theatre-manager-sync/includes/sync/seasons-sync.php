@@ -53,7 +53,7 @@ function tm_sync_process_season($item, $dry_run = false) {
         // SharePoint field mapping for Seasons:
         // - SeasonName contains season name (fallback to Title)
         // - StartDate, EndDate for dates
-        // - WebsireBanner, 3-upFront, 3-upBack, SMSquare, SMPortrait for images
+        // - WebsiteBanner, 3-upFront, 3-upBack, SMSquare, SMPortrait for images
         // - IsCurrentSeason, IsUpcomingSeason for flags
         $name = trim($fields['SeasonName'] ?? $fields['Title'] ?? '');
         $start_date = trim($fields['StartDate'] ?? '');
@@ -80,7 +80,7 @@ function tm_sync_process_season($item, $dry_run = false) {
             return '';
         };
         
-        $website_banner_url = $extract_url($fields['WebsireBanner'] ?? '');
+        $website_banner_url = $extract_url($fields['WebsiteBanner'] ?? '');
         $image_front_url = $extract_url($fields['3-upFront'] ?? '');
         $image_back_url = $extract_url($fields['3-upBack'] ?? '');
         $sm_square_url = $extract_url($fields['SMSquare'] ?? '');
