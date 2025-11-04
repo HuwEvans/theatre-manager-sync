@@ -214,8 +214,10 @@ function tm_sync_process_board_member($item, $dry_run = false) {
         $fields = $item['fields'] ?? $item;
         
         $sp_id = $item['id'] ?? null;
-        $name = trim($fields['Title'] ?? '');
-        $position = trim($fields['Position'] ?? '');
+        // In SharePoint Board Members list, "Name" field contains the person's name
+        // "Title" field contains the position (e.g., "President")
+        $name = trim($fields['Name'] ?? $fields['Title'] ?? '');
+        $position = trim($fields['Title'] ?? '');
         
         // Photo can be a string or an object with Url property
         $photo_url = '';
@@ -227,7 +229,7 @@ function tm_sync_process_board_member($item, $dry_run = false) {
             }
         }
 
-        tm_sync_log('debug', 'Extracted fields', ['sp_id' => $sp_id, 'name' => $name, 'position' => $position]);
+        tm_sync_log('debug', 'Extracted fields', ['sp_id' => $sp_id, 'name' => $name, 'position' => $position, 'fields_keys' => array_keys($fields)]);
 
         if (!$name || !$sp_id) {
             tm_sync_log('warning', 'Skipped item with missing name or ID.', ['sp_id' => $sp_id, 'name' => $name, 'fields_keys' => array_keys($fields)]);
