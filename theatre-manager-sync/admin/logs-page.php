@@ -73,6 +73,32 @@ class TM_Sync_Log_Table extends WP_List_Table {
                 return '';
         }
     }
+
+    /**
+     * Override display to prevent duplicate pagination
+     */
+    public function display() {
+        // Only display pagination at top, table, then pagination at bottom (no duplicates)
+        $this->display_tablenav( 'top' );
+        ?>
+        <table class="wp-list-table <?php echo implode( ' ', $this->get_table_classes() ); ?>">
+            <thead>
+                <tr>
+                    <?php $this->print_column_headers(); ?>
+                </tr>
+            </thead>
+            <tbody>
+                <?php $this->display_rows_or_placeholder(); ?>
+            </tbody>
+            <tfoot>
+                <tr>
+                    <?php $this->print_column_headers( false ); ?>
+                </tr>
+            </tfoot>
+        </table>
+        <?php
+        $this->display_tablenav( 'bottom' );
+    }
 }
 
 /**
@@ -153,6 +179,9 @@ function tm_sync_handle_clear_logs_ajax() {
     } else {
         wp_send_json_error(['message' => 'Failed to clear logs or log file does not exist']);
     }
+    
+    // Exit immediately to prevent any further logging
+    wp_die();
 }
 
 // Register AJAX handlers (for both logged-in and non-logged-in users, but check permissions)
