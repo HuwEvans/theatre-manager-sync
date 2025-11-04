@@ -30,13 +30,14 @@ define('TMS_PLUGIN_DIR', plugin_dir_path(__FILE__));
 //define('TM_PLUGIN_URL', plugin_dir_url(__FILE__));
 		require_once TMS_PLUGIN_DIR . 'includes/logger.php';
 		require_once TMS_PLUGIN_DIR . 'admin/admin-menu.php';
-		require_once TMS_PLUGIN_DIR . 'admin/settings-page.php';
 		require_once TMS_PLUGIN_DIR . 'includes/helpers.php';
-		require_once TMS_PLUGIN_DIR . 'admin/logs-page.php';		
-		require_once TMS_PLUGIN_DIR . 'admin/admin-sync.php';
-		// In theatre-manager-sync.php or similar
+		// Load sync handlers first to make folder-discovery functions available
 		require_once plugin_dir_path(__FILE__) . 'includes/sync/sync-handlers.php';
 		require_once plugin_dir_path(__FILE__) . 'includes/api/class-tm-graph-client.php';
+		// Now load settings page (which uses folder-discovery functions)
+		require_once TMS_PLUGIN_DIR . 'admin/settings-page.php';
+		require_once TMS_PLUGIN_DIR . 'admin/logs-page.php';		
+		require_once TMS_PLUGIN_DIR . 'admin/admin-sync.php';
 
 	
 if ( ! function_exists('tm_sync_required_cpts') ) {
