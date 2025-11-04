@@ -158,6 +158,22 @@ The plugin uses a single SharePoint site. Configure the site ID in the plugin se
 - IsCurrentSeason: Yes, No
 - IsUpcomingSeason: Yes, No
 
+**WordPress CPT Field Mapping:**
+
+| SharePoint Field | WordPress Meta Key | Notes |
+|-----------------|-------------------|-------|
+| Title | post_title | Stored as post title |
+| SeasonName | _tm_season_name | Season name |
+| StartDate | _tm_season_start_date | ISO date format |
+| EndDate | _tm_season_end_date | ISO date format |
+| IsCurrentSeason | _tm_season_is_current | Boolean (0 or 1) |
+| IsUpcomingSeason | _tm_season_is_upcoming | Boolean (0 or 1) |
+| WebsiteBanner | _tm_season_social_banner | Image URL |
+| 3-upFront | _tm_season_image_front | Image URL |
+| 3-upBack | _tm_season_image_back | Image URL |
+| SMSquare | _tm_season_sm_square | Image URL |
+| SMPortrait | _tm_season_sm_portrait | Image URL |
+
 ---
 
 ### Shows
