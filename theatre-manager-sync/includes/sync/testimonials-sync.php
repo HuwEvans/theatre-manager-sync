@@ -48,14 +48,18 @@ function tm_sync_process_testimonial($item, $dry_run = false) {
         $name = trim($fields['Title'] ?? $fields['Name'] ?? '');
         $comment = trim($fields['Comment'] ?? $fields['Testimonial'] ?? '');
         
-        // Extract rating - handle both simple values and complex objects
-        $rating_value = $fields['Rating'] ?? $fields['Rate'] ?? 0;
+        // Extract rating from Ratingnumber field (type: number)
+        // Also check fallback field names for compatibility
+        $rating_value = $fields['Ratingnumber'] ?? $fields['Rating'] ?? $fields['Rate'] ?? 0;
         if (is_array($rating_value) || is_object($rating_value)) {
             // If it's an object/array, try to get the numeric value property
             $rating = intval($rating_value['value'] ?? $rating_value->value ?? 0);
         } else {
             $rating = intval($rating_value);
         }
+        
+        // Ensure rating is within 1-5 range for star display
+        $rating = max(1, min(5, $rating));
 
         tm_sync_log('debug', 'Extracted fields', ['sp_id' => $sp_id, 'name' => $name, 'rating' => $rating, 'raw_rating' => json_encode($rating_value), 'available_fields' => array_keys($fields)]);
 
