@@ -127,15 +127,21 @@ class TM_Graph_Client {
 
         error_log('[TM_Graph_Client] Resolved list ID: ' . $list_id);
 
-        // Build endpoint with expand=fields to get all fields
-        // SharePoint's Graph API returns fields when we use expand=fields
-        $endpoint = "sites/{$this->site_id}/lists/{$list_id}/items?expand=fields";
+        // Build endpoint with explicit field selection based on list type
+        // SharePoint's Graph API requires explicit field names in the select parameter
+        $fields = $this->get_fields_for_list($list_name);
+        $field_param = !empty($fields) ? '&select=' . urlencode(implode(',', $fields)) : '';
         
-        error_log('[TM_Graph_Client] Using endpoint: ' . $endpoint);
+        // Build endpoint - use $select instead of expand to get specific fields
+        // Add expand=fields to ensure we get all fields data
+        $endpoint = "sites/{$this->site_id}/lists/{$list_id}/items?expand=fields($select=" . urlencode(implode(',', $fields)) . ")";
+        
+        error_log('[TM_Graph_Client] Using endpoint with fields: ' . $list_name);
+        error_log('[TM_Graph_Client] Requesting fields: ' . implode(', ', $fields));
         $data = $this->request($endpoint);
         
         if (!$data) {
-            error_log('[TM_Graph_Client] No data returned from endpoint: ' . $endpoint);
+            error_log('[TM_Graph_Client] No data returned from endpoint');
             return null;
         }
         
@@ -244,5 +250,31 @@ class TM_Graph_Client {
 
         error_log('[TM_Graph_Client] File downloaded successfully, size: ' . strlen($file_content) . ' bytes');
         return $file_content;
+    }
+
+    /**
+     * Get field names for a specific SharePoint list
+     * Returns the exact field names that should be expanded for each CPT
+     * 
+     * @param string $list_name - The SharePoint list name
+     * @return array - Array of field names to expand
+     */
+    private function get_fields_for_list($list_name) {
+        // Map list names to their required fields
+        $field_map = [
+            'Advertisers' => ['Title', 'Company', 'Contact', 'Website', 'Logo', 'Description'],
+            'Board Members' => ['Title', 'Name', 'Position', 'Photo', 'Bio', 'Contact', 'Email'],
+            'Cast' => ['Title', 'CharacterName', 'ActorName', 'ShowIDLookup', 'ShowIDLookupShowName', 'Headshot', 'Notes'],
+            'Contributors' => ['Title', 'Name', 'Company', 'Tier', 'DonationDate', 'DonationAmount', 'Contact', 'Email'],
+            'Seasons' => ['Title', 'SeasonName', 'StartDate', 'EndDate', 'IsCurrentSeason', 'IsUpcomingSeason', 'WebsireBanner', '3-upFront', '3-upBack', 'SMSquare', 'SMPortrait', 'Description'],
+            'Shows' => ['Title', 'ShowName', 'Author', 'Director', 'AssociateDirector', 'StartDate', 'EndDate', 'ShowDatesText', 'Description', 'ProgramFileURL', 'SeasonIDLookup', 'SeasonIDLookupSeasonName'],
+            'Sponsors' => ['Title', 'Company', 'SponsorshipLevel', 'Website', 'Logo', 'Contact', 'Email'],
+            'Testimonials' => ['Title', 'Comment', 'RatingNumber', 'Author', 'AuthorTitle', 'AuthorCompany', 'Date', 'Approved'],
+        ];
+        
+        // Return fields for this list, or default to Title if not found
+        $fields = $field_map[$list_name] ?? ['Title'];
+        error_log('[TM_Graph_Client] Field map for ' . $list_name . ': ' . json_encode($fields));
+        return $fields;
     }
 }
