@@ -95,6 +95,56 @@ function tm_sync_handle_cache_ajax() {
 add_action('wp_ajax_tm_sync_cache_action', 'tm_sync_handle_cache_ajax');
 
 /**
+ * Handle AJAX actions for data cleaning
+ */
+function tm_sync_handle_clean_ajax() {
+    check_ajax_referer('tm_sync_settings_nonce', 'nonce');
+    
+    if (!current_user_can('manage_options')) {
+        wp_send_json_error('Insufficient permissions');
+    }
+    
+    $cpts = isset($_POST['cpts']) ? (array) $_POST['cpts'] : [];
+    
+    if (empty($cpts)) {
+        wp_send_json_error('No CPTs selected');
+    }
+    
+    $total_deleted = 0;
+    $results = [];
+    
+    foreach ($cpts as $cpt) {
+        $cpt = sanitize_text_field($cpt);
+        
+        $posts = get_posts([
+            'post_type' => $cpt,
+            'numberposts' => -1,
+            'post_status' => 'any'
+        ]);
+        
+        $deleted = 0;
+        foreach ($posts as $post) {
+            if (wp_delete_post($post->ID, true)) {
+                $deleted++;
+            }
+        }
+        
+        $results[$cpt] = $deleted;
+        $total_deleted += $deleted;
+        
+        tm_sync_log('info', 'User deleted CPT posts via settings', ['cpt' => $cpt, 'deleted_count' => $deleted]);
+    }
+    
+    $message = sprintf('Successfully deleted %d post(s) from %d CPT(s).', $total_deleted, count($cpts));
+    wp_send_json_success([
+        'message' => $message,
+        'results' => $results,
+        'total_deleted' => $total_deleted
+    ]);
+}
+add_action('wp_ajax_tm_sync_clean_action', 'tm_sync_handle_clean_ajax');
+
+/**
  * Refresh folder cache by discovering all folders
  */
 function tm_sync_refresh_folder_cache() {
@@ -137,6 +187,9 @@ function tm_sync_render_settings_page() {
             </a>
             <a href="#" class="nav-tab" data-tab="manual-overrides">
                 <span class="dashicons dashicons-edit"></span> Manual Overrides
+            </a>
+            <a href="#" class="nav-tab" data-tab="clean-data">
+                <span class="dashicons dashicons-trash"></span> Clean Data
             </a>
             <a href="#" class="nav-tab" data-tab="help">
                 <span class="dashicons dashicons-editor-help"></span> Help
@@ -250,6 +303,77 @@ function tm_sync_render_settings_page() {
                             <?php submit_button('Save Overrides', 'primary', 'submit'); ?>
                         </div>
                     </form>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Tab: Clean Data -->
+        <div class="nav-content" id="clean-data" style="display: none;">
+            <div class="postbox">
+                <h2 class="hndle"><span class="dashicons dashicons-trash"></span> Clean Synced Data</h2>
+                <div class="inside">
+                    <p><strong>WARNING:</strong> Deleting posts is permanent. This will remove all synced posts for the selected CPT(s).</p>
+                    
+                    <div style="background-color: #fff3cd; border: 1px solid #ffc107; padding: 10px; margin-bottom: 15px; border-radius: 3px;">
+                        <strong>⚠️ Caution:</strong> Deleted posts cannot be recovered. Please backup your database first.
+                    </div>
+                    
+                    <h3>Delete Posts by CPT</h3>
+                    <p>Select which CPT data to delete:</p>
+                    
+                    <div style="margin-bottom: 15px;">
+                        <label style="display: block; margin-bottom: 8px;">
+                            <input type="checkbox" class="cpt-checkbox" value="advertiser" id="cpt-advertiser">
+                            <strong>Advertisers</strong> - Delete all advertiser posts
+                        </label>
+                        <label style="display: block; margin-bottom: 8px;">
+                            <input type="checkbox" class="cpt-checkbox" value="board_member" id="cpt-board_member">
+                            <strong>Board Members</strong> - Delete all board member posts
+                        </label>
+                        <label style="display: block; margin-bottom: 8px;">
+                            <input type="checkbox" class="cpt-checkbox" value="cast" id="cpt-cast">
+                            <strong>Cast</strong> - Delete all cast posts
+                        </label>
+                        <label style="display: block; margin-bottom: 8px;">
+                            <input type="checkbox" class="cpt-checkbox" value="sponsor" id="cpt-sponsor">
+                            <strong>Sponsors</strong> - Delete all sponsor posts
+                        </label>
+                        <label style="display: block; margin-bottom: 8px;">
+                            <input type="checkbox" class="cpt-checkbox" value="season" id="cpt-season">
+                            <strong>Seasons</strong> - Delete all season posts
+                        </label>
+                        <label style="display: block; margin-bottom: 8px;">
+                            <input type="checkbox" class="cpt-checkbox" value="show" id="cpt-show">
+                            <strong>Shows</strong> - Delete all show posts
+                        </label>
+                        <label style="display: block; margin-bottom: 8px;">
+                            <input type="checkbox" class="cpt-checkbox" value="contributor" id="cpt-contributor">
+                            <strong>Contributors</strong> - Delete all contributor posts
+                        </label>
+                        <label style="display: block; margin-bottom: 8px;">
+                            <input type="checkbox" class="cpt-checkbox" value="testimonial" id="cpt-testimonial">
+                            <strong>Testimonials</strong> - Delete all testimonial posts
+                        </label>
+                    </div>
+                    
+                    <div style="margin-bottom: 15px;">
+                        <button type="button" class="button" id="select-all-cpts">
+                            Select All
+                        </button>
+                        <button type="button" class="button" id="clear-all-cpts">
+                            Clear All
+                        </button>
+                    </div>
+                    
+                    <div style="margin-bottom: 15px;">
+                        <strong>Posts to delete:</strong> <span id="cpt-count">0</span>
+                    </div>
+                    
+                    <button type="button" class="button button-danger tm-clean-action" data-action="delete_cpts" style="background-color: #dc3545; color: white; border-color: #dc3545; margin-right: 10px;">
+                        <span class="dashicons dashicons-trash"></span> Delete Selected CPT Data
+                    </button>
+                    
+                    <div id="clean-status" style="margin-top: 15px; display: none; padding: 10px; border-radius: 3px;"></div>
                 </div>
             </div>
         </div>
@@ -467,8 +591,76 @@ function tm_sync_render_settings_page() {
             e.preventDefault();
             $(this).closest('.override-row').remove();
         });
+        
+        // Clean data functionality
+        function updateCptCount() {
+            var count = $('.cpt-checkbox:checked').length;
+            $('#cpt-count').text(count);
+        }
+        
+        $('.cpt-checkbox').on('change', updateCptCount);
+        
+        $('#select-all-cpts').on('click', function(e) {
+            e.preventDefault();
+            $('.cpt-checkbox').prop('checked', true);
+            updateCptCount();
+        });
+        
+        $('#clear-all-cpts').on('click', function(e) {
+            e.preventDefault();
+            $('.cpt-checkbox').prop('checked', false);
+            updateCptCount();
+        });
+        
+        $('.tm-clean-action').on('click', function(e) {
+            e.preventDefault();
+            var $btn = $(this);
+            var selectedCpts = [];
+            
+            $('.cpt-checkbox:checked').each(function() {
+                selectedCpts.push($(this).val());
+            });
+            
+            if (selectedCpts.length === 0) {
+                alert('Please select at least one CPT to delete.');
+                return;
+            }
+            
+            var message = 'Are you sure you want to delete all posts for: ' + selectedCpts.join(', ') + '?\n\nThis action cannot be undone!';
+            if (!confirm(message)) {
+                return;
+            }
+            
+            $btn.prop('disabled', true);
+            var $status = $('#clean-status');
+            $status.show().html('<p style="color: blue;">Deleting posts...</p>');
+            
+            $.ajax({
+                url: ajaxurl,
+                type: 'POST',
+                data: {
+                    action: 'tm_sync_clean_action',
+                    cpts: selectedCpts,
+                    nonce: '<?php echo wp_create_nonce('tm_sync_settings_nonce'); ?>'
+                },
+                success: function(response) {
+                    if (response.success) {
+                        $status.html('<p style="color: green;">✓ ' + response.data.message + '</p>');
+                        $('.cpt-checkbox:checked').prop('checked', false);
+                        updateCptCount();
+                    } else {
+                        $status.html('<p style="color: red;">✗ Error: ' + response.data + '</p>');
+                    }
+                },
+                error: function() {
+                    $status.html('<p style="color: red;">✗ AJAX error occurred</p>');
+                },
+                complete: function() {
+                    $btn.prop('disabled', false);
+                }
+            });
+        });
     });
-    </script>
     <?php
 }
 
