@@ -69,10 +69,10 @@ function tm_sync_process_sponsor($item, $dry_run = false) {
             }
         }
 
-        tm_sync_log('debug', 'Extracted fields', ['sp_id' => $sp_id, 'name' => $name, 'level' => $sponsor_level]);
+        tm_sync_log('debug', 'Extracted fields', ['sp_id' => $sp_id, 'name' => $name, 'level' => $sponsor_level, 'all_fields' => $fields]);
 
         if (!$name || !$sp_id) {
-            tm_sync_log('warning', 'Skipped item with missing name or ID.', ['sp_id' => $sp_id, 'name' => $name, 'fields_keys' => array_keys($fields)]);
+            tm_sync_log('warning', 'Skipped item with missing name or ID.', ['sp_id' => $sp_id, 'name' => $name, 'fields_keys' => array_keys($fields), 'full_item' => $item]);
             return false;
         }
 
@@ -179,24 +179,31 @@ function tm_sync_sponsors($dry_run = false) {
     tm_sync_log('info', 'Starting sponsors sync.', ['dry_run' => $dry_run]);
 
     $items = tm_sync_fetch_sponsors_data();
-    if (!$items) {
+    if ($items === null) {
         tm_sync_log('error', 'No data fetched from SharePoint.');
-        return 'Sync failed: No data fetched.';
+        return 'Sync failed: No data fetched from SharePoint (list may not exist).';
+    }
+    
+    if (empty($items)) {
+        tm_sync_log('warning', 'No items in Sponsors list.');
+        return 'Sync complete: 0 sponsors (list is empty).';
     }
 
     $count = 0;
+    $skipped = 0;
     foreach ($items as $item) {
         if (tm_sync_process_sponsor($item, $dry_run)) {
             $count++;
         } else {
-            tm_sync_log('warning', 'Failed to process sponsor item.', ['item' => $item]);
+            $skipped++;
+            tm_sync_log('debug', 'Skipped sponsor item.', ['item' => $item]);
         }
     }
 
     $summary = $dry_run
-        ? "Dry-run complete: {$count} sponsor(s) would be synced."
-        : "Sync complete: {$count} sponsor(s) synced.";
+        ? "Dry-run complete: {$count} sponsor(s) would be synced, {$skipped} skipped."
+        : "Sync complete: {$count} sponsor(s) synced, {$skipped} skipped.";
 
-    tm_sync_log('info', 'Sponsors sync completed.', ['dry_run' => $dry_run, 'synced_count' => $count]);
+    tm_sync_log('info', 'Sponsors sync completed.', ['dry_run' => $dry_run, 'synced_count' => $count, 'skipped_count' => $skipped]);
     return $summary;
 }
