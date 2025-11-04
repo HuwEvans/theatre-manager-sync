@@ -44,6 +44,9 @@ function tm_sync_process_testimonial($item, $dry_run = false) {
         // Extract the fields object from SharePoint response
         $fields = $item['fields'] ?? $item;
         
+        // Log the complete fields structure for debugging
+        tm_sync_log('debug', 'Complete fields object', ['fields' => json_encode($fields, JSON_PRETTY_PRINT)]);
+        
         $sp_id = $item['id'] ?? null;
         $name = trim($fields['Title'] ?? $fields['Name'] ?? '');
         $comment = trim($fields['Comment'] ?? $fields['Testimonial'] ?? '');
@@ -51,15 +54,28 @@ function tm_sync_process_testimonial($item, $dry_run = false) {
         // Extract rating from Ratingnumber field (type: number)
         // Also check fallback field names for compatibility
         $rating_value = $fields['Ratingnumber'] ?? $fields['Rating'] ?? $fields['Rate'] ?? 0;
+        tm_sync_log('debug', 'Rating extraction details', [
+            'found_in_Ratingnumber' => isset($fields['Ratingnumber']),
+            'Ratingnumber_value' => json_encode($fields['Ratingnumber'] ?? 'NOT_FOUND'),
+            'raw_rating_value' => json_encode($rating_value),
+            'raw_rating_type' => gettype($rating_value)
+        ]);
+        
         if (is_array($rating_value) || is_object($rating_value)) {
             // If it's an object/array, try to get the numeric value property
             $rating = intval($rating_value['value'] ?? $rating_value->value ?? 0);
+            tm_sync_log('debug', 'Extracted rating from object/array', ['rating' => $rating]);
         } else {
             $rating = intval($rating_value);
+            tm_sync_log('debug', 'Extracted rating as simple value', ['original' => $rating_value, 'converted' => $rating]);
         }
         
         // Ensure rating is within 1-5 range for star display
+        $original_rating = $rating;
         $rating = max(1, min(5, $rating));
+        if ($original_rating !== $rating) {
+            tm_sync_log('warning', 'Rating was outside 1-5 range, clamped', ['original' => $original_rating, 'clamped' => $rating]);
+        }
 
         tm_sync_log('debug', 'Extracted fields', ['sp_id' => $sp_id, 'name' => $name, 'rating' => $rating, 'raw_rating' => json_encode($rating_value), 'available_fields' => array_keys($fields)]);
 
