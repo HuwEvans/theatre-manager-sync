@@ -3,6 +3,7 @@ defined('ABSPATH') || exit;
 
 // Include required files
 require_once TMS_PLUGIN_DIR . 'includes/sync/advertiser-sync.php';
+require_once TMS_PLUGIN_DIR . 'includes/sync/board-member-sync.php';
 
 /**
  * Display the manual sync admin page.
@@ -88,6 +89,9 @@ add_action('wp_ajax_tm_sync_run', function() {
     switch ($cpt) {
         case 'advertiser':
             $result = tm_sync_advertisers($dry_run);
+            break;
+        case 'board_member':
+            $result = tm_sync_board_members($dry_run);
             break;
         default:
             $result = 'Unknown CPT type: ' . $cpt;
