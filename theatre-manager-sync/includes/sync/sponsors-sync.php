@@ -44,10 +44,19 @@ function tm_sync_process_sponsor($item, $dry_run = false) {
         // Extract the fields object from SharePoint response
         $fields = $item['fields'] ?? $item;
         
+        // Log all available field names to help debugging
+        $available_field_names = array_keys((array)$fields);
+        tm_sync_log('info', 'Available SharePoint field names for Sponsors', ['fields' => $available_field_names]);
+        
+        // IMPORTANT: Log this to error_log so it appears in WordPress debug logs
+        error_log('[SPONSORS_DEBUG] Complete SharePoint item: ' . json_encode($item, JSON_PRETTY_PRINT));
+        error_log('[SPONSORS_DEBUG] Fields array: ' . json_encode($fields, JSON_PRETTY_PRINT));
+        error_log('[SPONSORS_DEBUG] Field keys: ' . implode(', ', array_keys((array)$fields)));
+        
         $sp_id = $item['id'] ?? null;
-        $name = trim($fields['Title'] ?? '');
+        $name = trim($fields['Title'] ?? $fields['Name'] ?? '');
         $company = trim($fields['Company'] ?? '');
-        $sponsor_level = trim($fields['SponsorLevel'] ?? $fields['Level'] ?? '');
+        $sponsor_level = trim($fields['SponsorLevel'] ?? $fields['Level'] ?? $fields['Tier'] ?? '');
         
         // Website can be a string or an object with Url property
         $website = '';
@@ -125,10 +134,17 @@ function tm_sync_process_sponsor($item, $dry_run = false) {
 
         // Update sponsor metadata
         update_post_meta($post_id, '_tm_name', $name);
-        update_post_meta($post_id, '_tm_sponsor_level', $sponsor_level);
+        update_post_meta($post_id, '_tm_company', $company);
+        update_post_meta($post_id, '_tm_level', $sponsor_level);
         if (!empty($website)) {
             update_post_meta($post_id, '_tm_website', $website);
         }
+        
+        // Verify the data was saved
+        $saved_name = get_post_meta($post_id, '_tm_name', true);
+        $saved_company = get_post_meta($post_id, '_tm_company', true);
+        $saved_level = get_post_meta($post_id, '_tm_level', true);
+        tm_sync_log('debug', 'Saved sponsor metadata', ['post_id' => $post_id, 'name' => $saved_name, 'company' => $saved_company, 'level' => $saved_level]);
 
         // Get access token for image syncing
         if (!class_exists('TM_Graph_Client')) {
