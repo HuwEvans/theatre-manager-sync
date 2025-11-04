@@ -223,8 +223,21 @@ function tm_sync_page_logs() {
                     .then(data => {
                         console.log('Response data:', data);
                         if (data.success) {
-                            alert('Logs cleared successfully');
-                            location.reload();
+                            // Show success message and hide table
+                            const wrap = document.querySelector('.wrap');
+                            const successMsg = document.createElement('div');
+                            successMsg.className = 'notice notice-success is-dismissible';
+                            successMsg.innerHTML = '<p><strong>Logs cleared successfully!</strong> Reload the page to see fresh logs.</p>';
+                            wrap.insertBefore(successMsg, wrap.firstChild);
+                            
+                            // Hide the table
+                            const table = document.querySelector('.wp-list-table');
+                            if (table) table.style.display = 'none';
+                            
+                            clearBtn.disabled = false;
+                            clearBtn.textContent = 'Logs Cleared - Reload to Refresh';
+                            clearBtn.style.backgroundColor = '#28a745';
+                            clearBtn.style.borderColor = '#28a745';
                         } else {
                             const errorMsg = data.data && data.data.message ? data.data.message : 'Unknown error';
                             alert('Failed to clear logs: ' + errorMsg);
