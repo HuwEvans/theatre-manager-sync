@@ -53,10 +53,10 @@ function tm_sync_download_media_for_board_member($filename, $filename_prefix) {
     // Get Site and List IDs from options
     $site_id = 'miltonplayers.sharepoint.com,9122b47c-2748-446f-820e-ab3bc46b80d0,5d9211a6-6d28-4644-ad40-82fe3972fbf1';
     $image_media_list_id = '36cd8ce2-6611-401a-ae0c-20dd4abcf36b';
-    $board_members_folder_id = '01JHLCF5AMCWQY2NPGBFJ7BWVJ32DL3L5Z';  // Board Members folder ID
+    $people_folder_id = '01JHLCF5BHTBPD7EHS5FCJTTOE7DL5ZNW7';  // People folder ID (contains board member photos)
     
-    // Get the file ID from Board Members folder by searching for the filename
-    $search_url = "https://graph.microsoft.com/v1.0/sites/$site_id/lists/$image_media_list_id/drive/items/$board_members_folder_id/children";
+    // Get the file ID from People folder by searching for the filename
+    $search_url = "https://graph.microsoft.com/v1.0/sites/$site_id/lists/$image_media_list_id/drive/items/$people_folder_id/children";
     
     $response = wp_remote_get($search_url, array(
         'timeout' => 60,
@@ -67,7 +67,7 @@ function tm_sync_download_media_for_board_member($filename, $filename_prefix) {
     ));
 
     if (is_wp_error($response)) {
-        tm_sync_log('error', 'Failed to list Board Members folder in Image Media.', [
+        tm_sync_log('error', 'Failed to list People folder in Image Media.', [
             'error' => $response->get_error_message()
         ]);
         return null;
@@ -87,7 +87,7 @@ function tm_sync_download_media_for_board_member($filename, $filename_prefix) {
     }
     
     if (!$file_id) {
-        tm_sync_log('warning', 'File not found in Image Media Board Members folder.', ['filename' => $filename]);
+        tm_sync_log('warning', 'File not found in Image Media People folder.', ['filename' => $filename]);
         return null;
     }
 
@@ -315,7 +315,7 @@ function tm_sync_process_board_member($item, $dry_run = false) {
                 } else {
                     tm_sync_log('warning', 'Photo could not be synced.', array(
                         'filename' => $filename,
-                        'note' => 'File may not exist in SharePoint Image Media Board Members folder'
+                        'note' => 'File may not exist in SharePoint Image Media People folder'
                     ));
                 }
             }
