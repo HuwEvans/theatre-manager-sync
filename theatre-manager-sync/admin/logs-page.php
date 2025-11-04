@@ -99,22 +99,51 @@ function tm_sync_read_log_entries() {
  * Clear the log file
  */
 function tm_sync_clear_log_file() {
+    // Make sure tm_logger_file_for_date is available
+    if (!function_exists('tm_logger_file_for_date')) {
+        error_log('TM Sync: tm_logger_file_for_date function not available');
+        return false;
+    }
+    
     $file = tm_logger_file_for_date();
+    
+    if (!$file) {
+        error_log('TM Sync: No log file path returned');
+        return false;
+    }
+    
+    error_log('TM Sync: Attempting to clear log file: ' . $file);
+    
     if (file_exists($file)) {
-        unlink($file);
+        error_log('TM Sync: Log file exists, attempting to delete: ' . $file);
+        $result = @unlink($file);
+        if ($result) {
+            error_log('TM Sync: Log file successfully deleted: ' . $file);
+            return true;
+        } else {
+            error_log('TM Sync: Failed to delete log file: ' . $file . ' (permission denied?)');
+            return false;
+        }
+    } else {
+        error_log('TM Sync: Log file does not exist: ' . $file);
+        // Treat non-existent file as success
         return true;
     }
-    return false;
 }
 
 /**
  * AJAX handler to clear logs
  */
 function tm_sync_handle_clear_logs_ajax() {
-    check_ajax_referer('tm_sync_settings_nonce', 'nonce');
+    // Verify nonce
+    if (!isset($_POST['nonce']) || !wp_verify_nonce($_POST['nonce'], 'tm_sync_settings_nonce')) {
+        wp_send_json_error(['message' => 'Nonce verification failed']);
+        return;
+    }
     
     if (!current_user_can('manage_options')) {
-        wp_send_json_error('Insufficient permissions');
+        wp_send_json_error(['message' => 'Insufficient permissions']);
+        return;
     }
     
     $result = tm_sync_clear_log_file();
@@ -122,10 +151,13 @@ function tm_sync_handle_clear_logs_ajax() {
     if ($result) {
         wp_send_json_success(['message' => 'Logs cleared successfully']);
     } else {
-        wp_send_json_error('Failed to clear logs');
+        wp_send_json_error(['message' => 'Failed to clear logs or log file does not exist']);
     }
 }
+
+// Register AJAX handlers (for both logged-in and non-logged-in users, but check permissions)
 add_action('wp_ajax_tm_sync_clear_logs', 'tm_sync_handle_clear_logs_ajax');
+add_action('wp_ajax_nopriv_tm_sync_clear_logs', 'tm_sync_handle_clear_logs_ajax');
 
 /**
  * Render the Logs admin page.
@@ -171,6 +203,9 @@ function tm_sync_page_logs() {
         if (clearBtn) {
             clearBtn.addEventListener('click', function() {
                 if (confirm('Are you sure you want to clear all logs?')) {
+                    clearBtn.disabled = true;
+                    clearBtn.textContent = 'Clearing...';
+                    
                     fetch(ajaxurl, {
                         method: 'POST',
                         headers: {
@@ -181,17 +216,27 @@ function tm_sync_page_logs() {
                             nonce: '<?php echo wp_create_nonce("tm_sync_settings_nonce"); ?>'
                         })
                     })
-                    .then(response => response.json())
+                    .then(response => {
+                        console.log('Response status:', response.status);
+                        return response.json();
+                    })
                     .then(data => {
+                        console.log('Response data:', data);
                         if (data.success) {
                             alert('Logs cleared successfully');
                             location.reload();
                         } else {
-                            alert('Failed to clear logs: ' + (data.data || 'Unknown error'));
+                            const errorMsg = data.data && data.data.message ? data.data.message : 'Unknown error';
+                            alert('Failed to clear logs: ' + errorMsg);
+                            clearBtn.disabled = false;
+                            clearBtn.textContent = 'Clear Logs';
                         }
                     })
                     .catch(error => {
+                        console.error('Fetch error:', error);
                         alert('Error: ' + error.message);
+                        clearBtn.disabled = false;
+                        clearBtn.textContent = 'Clear Logs';
                     });
                 }
             });
