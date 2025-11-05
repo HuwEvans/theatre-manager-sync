@@ -84,7 +84,8 @@ function tm_sync_process_show($item, $dry_run = false) {
         // Extract Program File URL (handle as hyperlink field which is returned as object/array)
         $program_file_url = $extract_url($fields['ProgramFileURL'] ?? '');
         
-        error_log('[SHOWS_DEBUG] Extracted fields: name=' . $name . ', timeslot=' . $time_slot . ', author=' . $author . ', sub_authors=' . $sub_authors . ', director=' . $director . ', season=' . $season_lookup_name . ', sm_image=' . substr($sm_image_url, 0, 60));
+        error_log('[SHOWS_DEBUG] Extracted fields: name=' . $name . ', timeslot=' . $time_slot . ', author=' . $author . ', sub_authors=' . $sub_authors . ', director=' . $director . ', season=' . $season_lookup_name . ', sm_image=' . substr($sm_image_url, 0, 60) . ', pdf_url=' . substr($program_file_url, 0, 60));
+        error_log('[SHOWS_DEBUG] Raw ProgramFileURL field: ' . json_encode($fields['ProgramFileURL'] ?? null));
 
         tm_sync_log('debug', 'Extracted fields', ['sp_id' => $sp_id, 'name' => $name, 'author' => $author, 'director' => $director, 'season' => $season_lookup_name]);
 
@@ -144,20 +145,27 @@ function tm_sync_process_show($item, $dry_run = false) {
         
         // Handle Program PDF URL - download and store locally
         if ($program_file_url) {
+            error_log('[SHOWS_DEBUG] PDF field found: ' . substr($program_file_url, 0, 100));
             // Try to download the PDF to local storage
             $pdf_filename = sanitize_file_name($name . '-program-' . $sp_id . '.pdf');
             
+            error_log('[SHOWS_DEBUG] Calling tm_sync_download_pdf with filename: ' . $pdf_filename);
             $pdf_path = tm_sync_download_pdf($program_file_url, $pdf_filename);
+            error_log('[SHOWS_DEBUG] tm_sync_download_pdf returned: ' . ($pdf_path ? 'success - ' . $pdf_path : 'false'));
+            
             if ($pdf_path) {
                 // Store the local path
                 $pdf_url = tm_sync_get_pdf_url($pdf_filename);
                 update_post_meta($post_id, '_tm_show_program_url', $pdf_url);
+                error_log('[SHOWS_DEBUG] Stored local PDF URL: ' . $pdf_url);
             } else {
                 // Store SharePoint URL as fallback if local download fails
                 // Users can still access PDF from SharePoint
                 update_post_meta($post_id, '_tm_show_program_url', $program_file_url);
+                error_log('[SHOWS_DEBUG] Stored fallback SharePoint URL: ' . substr($program_file_url, 0, 100));
             }
         } else {
+            error_log('[SHOWS_DEBUG] No PDF field found in extracted fields');
             delete_post_meta($post_id, '_tm_show_program_url');
         }
         

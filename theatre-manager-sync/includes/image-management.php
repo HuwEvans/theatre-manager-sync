@@ -4,11 +4,6 @@
  * Handles creation and cleanup of synced images folder
  */
 
-// Include folder discovery functions for PDF downloads
-if (!function_exists('tm_sync_get_folder_id')) {
-    require_once dirname(__FILE__) . '/sync/folder-discovery.php';
-}
-
 /**
  * Get the synced images directory path
  * 
@@ -390,20 +385,33 @@ add_action('init', function() {
 function tm_sync_download_pdf($pdf_url, $filename) {
     if (empty($pdf_url) || empty($filename)) {
         tm_sync_log('warning', 'PDF download called with empty URL or filename');
+        error_log('[PDF_DEBUG] PDF download: empty params - url=' . (empty($pdf_url) ? 'empty' : 'ok') . ', filename=' . (empty($filename) ? 'empty' : 'ok'));
         return false;
     }
 
+    // Ensure folder discovery functions are loaded
+    if (!function_exists('tm_sync_get_folder_id')) {
+        require_once dirname(__FILE__) . '/sync/folder-discovery.php';
+    }
+
+    error_log('[PDF_DEBUG] PDF download start: filename=' . $filename);
+
     // Extract URL if SharePoint returned an object
     if (is_array($pdf_url)) {
+        error_log('[PDF_DEBUG] PDF URL is array, extracting Url key');
         $pdf_url = $pdf_url['Url'] ?? '';
     } elseif (is_object($pdf_url)) {
+        error_log('[PDF_DEBUG] PDF URL is object, extracting Url property');
         $pdf_url = $pdf_url->Url ?? '';
     }
 
     if (empty($pdf_url)) {
         tm_sync_log('warning', 'Could not extract URL from PDF field');
+        error_log('[PDF_DEBUG] Could not extract URL from PDF field');
         return false;
     }
+
+    error_log('[PDF_DEBUG] PDF URL extracted: ' . substr($pdf_url, 0, 100) . '...');
 
     tm_sync_log('debug', 'Downloading PDF from SharePoint using Graph API', [
         'url' => substr($pdf_url, 0, 100) . '...',
@@ -413,21 +421,29 @@ function tm_sync_download_pdf($pdf_url, $filename) {
     // Get access token for Graph API authentication
     if (!class_exists('TM_Graph_Client')) {
         tm_sync_log('error', 'TM_Graph_Client not available for PDF download');
+        error_log('[PDF_DEBUG] TM_Graph_Client not available');
         return false;
     }
 
+    error_log('[PDF_DEBUG] Getting access token');
     $client = new TM_Graph_Client();
     $token = $client->get_access_token_public();
     
     if (!$token) {
         tm_sync_log('error', 'Failed to get access token for PDF download');
+        error_log('[PDF_DEBUG] Failed to get access token');
         return false;
     }
 
+    error_log('[PDF_DEBUG] Access token obtained');
+
     // Extract folder name from URL (e.g., "PDFs" from /Image Media/PDFs/filename.pdf)
     $folder_name = tm_sync_extract_folder_from_url($pdf_url);
+    error_log('[PDF_DEBUG] Extracted folder name: ' . ($folder_name ? $folder_name : 'null'));
+    
     if (!$folder_name) {
         tm_sync_log('warning', 'Could not extract folder name from PDF URL', ['url' => $pdf_url]);
+        error_log('[PDF_DEBUG] Could not extract folder name from URL: ' . $pdf_url);
         return false;
     }
 
@@ -435,11 +451,14 @@ function tm_sync_download_pdf($pdf_url, $filename) {
     $site_id = 'miltonplayers.sharepoint.com,9122b47c-2748-446f-820e-ab3bc46b80d0,5d9211a6-6d28-4644-ad40-82fe3972fbf1';
     $image_media_list_id = '36cd8ce2-6611-401a-ae0c-20dd4abcf36b';
     
+    error_log('[PDF_DEBUG] Getting folder ID for: ' . $folder_name);
     // Get folder ID for the PDF folder using generic folder discovery
     $folder_id = tm_sync_get_folder_id($folder_name, $site_id, $image_media_list_id, $token);
+    error_log('[PDF_DEBUG] Folder ID result: ' . ($folder_id ? $folder_id : 'null'));
     
     if (!$folder_id) {
         tm_sync_log('error', 'Could not find PDF folder in Image Media', ['folder' => $folder_name]);
+        error_log('[PDF_DEBUG] Could not find folder: ' . $folder_name);
         return false;
     }
 
@@ -450,6 +469,8 @@ function tm_sync_download_pdf($pdf_url, $filename) {
 
     // List files in folder to find the matching PDF
     $search_url = "https://graph.microsoft.com/v1.0/sites/$site_id/lists/$image_media_list_id/drive/items/$folder_id/children";
+    
+    error_log('[PDF_DEBUG] Listing folder contents from: ' . substr($search_url, 0, 100) . '...');
     
     $response = wp_remote_get($search_url, [
         'timeout' => 60,
@@ -464,6 +485,7 @@ function tm_sync_download_pdf($pdf_url, $filename) {
             'error' => $response->get_error_message(),
             'folder' => $folder_name
         ]);
+        error_log('[PDF_DEBUG] Failed to list folder: ' . $response->get_error_message());
         return false;
     }
 
@@ -474,15 +496,22 @@ function tm_sync_download_pdf($pdf_url, $filename) {
         tm_sync_log('error', 'Unexpected response from Graph API listing PDF folder', [
             'folder' => $folder_name
         ]);
+        error_log('[PDF_DEBUG] No value in Graph response');
         return false;
     }
+
+    error_log('[PDF_DEBUG] Found ' . count($json['value']) . ' items in folder');
 
     // Find the file by matching filename
     $file_id = null;
     $pdf_filename = basename($pdf_url);
+    error_log('[PDF_DEBUG] Looking for file: ' . $pdf_filename);
+    
     foreach ($json['value'] as $item) {
+        error_log('[PDF_DEBUG] Comparing: ' . strtolower($item['name']) . ' vs ' . strtolower($pdf_filename));
         if (strtolower($item['name']) === strtolower($pdf_filename)) {
             $file_id = $item['id'];
+            error_log('[PDF_DEBUG] File found with ID: ' . $file_id);
             break;
         }
     }
@@ -492,6 +521,7 @@ function tm_sync_download_pdf($pdf_url, $filename) {
             'filename' => $pdf_filename,
             'folder' => $folder_name
         ]);
+        error_log('[PDF_DEBUG] PDF file not found in SharePoint folder');
         return false;
     }
 
@@ -502,6 +532,8 @@ function tm_sync_download_pdf($pdf_url, $filename) {
 
     // Download the file content using Graph API
     $download_url = "https://graph.microsoft.com/v1.0/sites/$site_id/lists/$image_media_list_id/drive/items/$file_id/content";
+    
+    error_log('[PDF_DEBUG] Downloading from Graph API');
     
     $response = wp_remote_get($download_url, [
         'timeout' => 120,
@@ -517,33 +549,42 @@ function tm_sync_download_pdf($pdf_url, $filename) {
             'filename' => $filename,
             'error' => $response->get_error_message()
         ]);
+        error_log('[PDF_DEBUG] Graph API download failed: ' . $response->get_error_message());
         return false;
     }
 
     $http_code = wp_remote_retrieve_response_code($response);
+    error_log('[PDF_DEBUG] Download HTTP code: ' . $http_code);
+    
     if ($http_code !== 200) {
         tm_sync_log('error', 'PDF download returned HTTP error', [
             'filename' => $filename,
             'http_code' => $http_code
         ]);
+        error_log('[PDF_DEBUG] Non-200 HTTP response: ' . $http_code);
         return false;
     }
 
     $file_content = wp_remote_retrieve_body($response);
+    error_log('[PDF_DEBUG] Downloaded ' . strlen($file_content) . ' bytes');
+    
     if (empty($file_content)) {
         tm_sync_log('error', 'Downloaded PDF is empty', ['filename' => $filename]);
+        error_log('[PDF_DEBUG] Downloaded file is empty');
         return false;
     }
 
     // Check if we got HTML instead of PDF (error indicator)
     if (strpos($file_content, '<!DOCTYPE') === 0 || strpos($file_content, '<html') === 0) {
         tm_sync_log('error', 'Downloaded content is HTML, not PDF', ['filename' => $filename]);
+        error_log('[PDF_DEBUG] Downloaded content is HTML');
         return false;
     }
 
     // Verify it's a PDF
     if (strpos($file_content, '%PDF') !== 0) {
         tm_sync_log('warning', 'Downloaded file does not start with PDF marker', ['filename' => $filename]);
+        error_log('[PDF_DEBUG] File does not start with %PDF marker');
         // Still save it anyway, might be valid
     }
 
@@ -552,19 +593,24 @@ function tm_sync_download_pdf($pdf_url, $filename) {
     if (!file_exists($pdf_dir)) {
         if (!wp_mkdir_p($pdf_dir)) {
             tm_sync_log('error', 'Failed to create sync folder for PDF', ['path' => $pdf_dir]);
+            error_log('[PDF_DEBUG] Failed to create folder: ' . $pdf_dir);
             return false;
         }
     }
 
     // Construct full file path
     $file_path = trailingslashit($pdf_dir) . $filename;
+    error_log('[PDF_DEBUG] Saving to: ' . $file_path);
 
     // Write file to disk
     $written = file_put_contents($file_path, $file_content);
     if ($written === false) {
         tm_sync_log('error', 'Failed to write PDF file to disk', ['path' => $file_path]);
+        error_log('[PDF_DEBUG] file_put_contents failed');
         return false;
     }
+
+    error_log('[PDF_DEBUG] File written successfully: ' . $written . ' bytes');
 
     @chmod($file_path, 0644);
 
@@ -573,6 +619,8 @@ function tm_sync_download_pdf($pdf_url, $filename) {
         'size' => strlen($file_content),
         'path' => $file_path
     ]);
+
+    error_log('[PDF_DEBUG] PDF download complete: ' . $file_path);
 
     return $file_path;
 }
