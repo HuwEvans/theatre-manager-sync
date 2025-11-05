@@ -304,7 +304,7 @@ class TM_Graph_Client {
             'Cast' => ['Title', 'field_2', 'field_3', 'ShowIDLookup', 'ShowIDLookup_x003a_ShowName', 'Headshot'],
             'Contributors' => ['Title', 'Name', 'Company', 'Tier', 'DonationDate', 'DonationAmount', 'Contact', 'Email'],
             'Seasons' => ['Title', 'SeasonName', 'StartDate', 'EndDate', 'IsCurrentSeason', 'IsUpcomingSeason', 'WebsiteBanner', '3-upFront', '3-upBack', 'SMSquare', 'SMPortrait', 'Description'],
-            'Shows' => ['Title', 'field_2', 'TimeSlot', 'Author', 'Sub_x002d_Authors', 'field_4', 'field_5', 'SMImage', 'field_6', 'field_7', 'field_8', 'field_9', 'field_10', 'SeasonIDLookup', 'SeasonIDLookup_x003a_SeasonName'],
+            'Shows' => ['Title', 'field_2', 'TimeSlot', 'Author', 'Sub_x002d_Authors', 'field_4', 'field_5', 'SMImage', 'field_6', 'field_7', 'field_8', 'field_9', 'ProgramFileURL', 'SeasonIDLookup', 'SeasonIDLookup_x003a_SeasonName'],
             'Sponsors' => ['Title', 'Company', 'SponsorshipLevel', 'Website', 'Logo', 'Contact', 'Email'],
             'Testimonials' => ['Title', 'Comment', 'RatingNumber', 'Author', 'AuthorTitle', 'AuthorCompany', 'Date', 'Approved'],
         ];

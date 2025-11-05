@@ -375,6 +375,8 @@ add_action('init', function() {
 
 /**
  * Download PDF from SharePoint and save to sync folder
+ * SharePoint direct links may require authentication for non-public files
+ * Falls back gracefully by storing the SharePoint URL if download fails
  * 
  * @param string $pdf_url URL or object containing PDF file from SharePoint
  * @param string $filename Filename to save as (should include .pdf extension)
@@ -382,10 +384,7 @@ add_action('init', function() {
  */
 function tm_sync_download_pdf($pdf_url, $filename) {
     if (empty($pdf_url) || empty($filename)) {
-        tm_sync_log('warning', 'PDF download called with empty URL or filename', [
-            'url' => substr($pdf_url, 0, 50) ?? 'empty',
-            'filename' => $filename
-        ]);
+        tm_sync_log('warning', 'PDF download called with empty URL or filename');
         return false;
     }
 
@@ -413,39 +412,58 @@ function tm_sync_download_pdf($pdf_url, $filename) {
     // Construct full file path
     $file_path = trailingslashit($pdf_dir) . $filename;
 
-    tm_sync_log('debug', 'Downloading PDF from SharePoint', [
-        'url' => substr($pdf_url, 0, 100) . '...',
-        'filename' => $filename
-    ]);
-
     // Download the PDF
-    // SharePoint redirect URLs (:i:/g/ID format) need ?download=1 to get actual file, not HTML
+    // SharePoint redirect URLs need ?download=1 to get actual file, not HTML
     $download_url = $pdf_url;
     if (strpos($download_url, '?') === false) {
         $download_url .= '?download=1';
     } else {
         $download_url .= '&download=1';
     }
+    
+    // Get access token for authentication
+    $access_token = null;
+    if (class_exists('TM_Graph_Client')) {
+        try {
+            $client = new TM_Graph_Client();
+            $reflection = new ReflectionClass('TM_Graph_Client');
+            $method = $reflection->getMethod('get_access_token');
+            $method->setAccessible(true);
+            $access_token = $method->invoke($client);
+        } catch (Exception $e) {
+            tm_sync_log('debug', 'Could not obtain access token for PDF: ' . $e->getMessage());
+        }
+    }
+
+    // Prepare request headers
+    $headers = [];
+    if ($access_token) {
+        $headers['Authorization'] = "Bearer {$access_token}";
+    }
 
     $response = wp_remote_get($download_url, [
         'timeout' => 120,
         'sslverify' => true,
         'redirection' => 10,
+        'headers' => $headers
     ]);
 
     if (is_wp_error($response)) {
-        tm_sync_log('error', 'Failed to download PDF from SharePoint', [
-            'url' => substr($pdf_url, 0, 100) . '...',
-            'error' => $response->get_error_message()
-        ]);
+        tm_sync_log('debug', 'Failed to download PDF from SharePoint: ' . $response->get_error_message());
         return false;
     }
 
     $http_code = wp_remote_retrieve_response_code($response);
+    tm_sync_log('debug', 'PDF download response', ['http_code' => $http_code, 'url' => substr($download_url, 0, 100)]);
+    
     if ($http_code !== 200) {
-        tm_sync_log('error', 'PDF download returned HTTP error', [
-            'url' => substr($pdf_url, 0, 100) . '...',
-            'http_code' => $http_code
+        // Log response headers and body for debugging
+        $response_headers = wp_remote_retrieve_headers($response);
+        $response_body = wp_remote_retrieve_body($response);
+        tm_sync_log('debug', 'PDF download HTTP error details', [
+            'http_code' => $http_code,
+            'content_type' => $response_headers['content-type'] ?? 'unknown',
+            'body_preview' => substr($response_body, 0, 200)
         ]);
         return false;
     }
@@ -458,36 +476,26 @@ function tm_sync_download_pdf($pdf_url, $filename) {
 
     // Check if we got HTML instead of PDF (error indicator)
     if (strpos($file_content, '<!DOCTYPE') === 0 || strpos($file_content, '<html') === 0) {
-        tm_sync_log('error', 'Downloaded PDF is HTML, not PDF - possible permission issue', [
-            'filename' => $filename,
-            'first_chars' => substr($file_content, 0, 100)
-        ]);
+        tm_sync_log('debug', 'Downloaded content is HTML, not PDF', ['filename' => $filename]);
         return false;
     }
 
     // Verify it's a PDF
     if (strpos($file_content, '%PDF') !== 0) {
-        tm_sync_log('warning', 'Downloaded file does not appear to be a valid PDF', [
-            'filename' => $filename,
-            'first_chars' => substr($file_content, 0, 20)
-        ]);
-        // Still save it anyway, might be valid
+        tm_sync_log('debug', 'Downloaded file does not start with PDF marker', ['filename' => $filename]);
+        // Still try to save it anyway
     }
 
     // Write file to disk
     $written = file_put_contents($file_path, $file_content);
     if ($written === false) {
-        tm_sync_log('error', 'Failed to write PDF file to disk', [
-            'path' => $file_path,
-            'filename' => $filename
-        ]);
+        tm_sync_log('error', 'Failed to write PDF file to disk', ['path' => $file_path]);
         return false;
     }
 
     tm_sync_log('info', 'Successfully downloaded and saved PDF', [
         'filename' => $filename,
-        'size' => strlen($file_content),
-        'path' => $file_path
+        'size' => strlen($file_content)
     ]);
 
     return $file_path;

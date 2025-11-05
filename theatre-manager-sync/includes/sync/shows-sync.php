@@ -39,15 +39,12 @@ function tm_sync_fetch_shows_data() {
 
 function tm_sync_process_show($item, $dry_run = false) {
     try {
+        error_log('[SHOWS_DEBUG] === START PROCESSING ===');
         tm_sync_log('debug', 'Processing show item.', ['item_id' => $item['id'] ?? 'unknown']);
 
         // Extract the fields object from SharePoint response
         $fields = $item['fields'] ?? $item;
         
-        // Log all available fields for debugging
-        error_log('[SHOWS_DEBUG] Complete SharePoint item: ' . json_encode($item, JSON_PRETTY_PRINT));
-        error_log('[SHOWS_DEBUG] Fields array: ' . json_encode($fields, JSON_PRETTY_PRINT));
-        error_log('[SHOWS_DEBUG] Field keys: ' . implode(', ', array_keys((array)$fields)));
         
         $sp_id = $item['id'] ?? null;
         // SharePoint field mapping for Shows:
@@ -69,7 +66,6 @@ function tm_sync_process_show($item, $dry_run = false) {
         $end_date = trim($fields['field_7'] ?? '');
         $show_dates_text = trim($fields['field_8'] ?? '');
         $description = trim($fields['field_9'] ?? '');
-        $program_file_url = trim($fields['field_10'] ?? '');
         $season_lookup = trim($fields['SeasonIDLookup'] ?? '');
         $season_lookup_name = trim($fields['SeasonIDLookup_x003a_SeasonName'] ?? '');
         
@@ -84,6 +80,9 @@ function tm_sync_process_show($item, $dry_run = false) {
         
         // Extract SM Image URL
         $sm_image_url = $extract_url($fields['SMImage'] ?? '');
+        
+        // Extract Program File URL (handle as hyperlink field which is returned as object/array)
+        $program_file_url = $extract_url($fields['ProgramFileURL'] ?? '');
         
         error_log('[SHOWS_DEBUG] Extracted fields: name=' . $name . ', timeslot=' . $time_slot . ', author=' . $author . ', sub_authors=' . $sub_authors . ', director=' . $director . ', season=' . $season_lookup_name . ', sm_image=' . substr($sm_image_url, 0, 60));
 
@@ -145,7 +144,7 @@ function tm_sync_process_show($item, $dry_run = false) {
         
         // Handle Program PDF URL - download and store locally
         if ($program_file_url) {
-            // Create a safe filename based on show name and ID
+            // Try to download the PDF to local storage
             $pdf_filename = sanitize_file_name($name . '-program-' . $sp_id . '.pdf');
             
             $pdf_path = tm_sync_download_pdf($program_file_url, $pdf_filename);
@@ -153,11 +152,10 @@ function tm_sync_process_show($item, $dry_run = false) {
                 // Store the local path
                 $pdf_url = tm_sync_get_pdf_url($pdf_filename);
                 update_post_meta($post_id, '_tm_show_program_url', $pdf_url);
-                error_log('[SHOWS_DEBUG] Successfully downloaded program PDF: ' . $pdf_url);
             } else {
-                // Store original URL as fallback if download failed
+                // Store SharePoint URL as fallback if local download fails
+                // Users can still access PDF from SharePoint
                 update_post_meta($post_id, '_tm_show_program_url', $program_file_url);
-                error_log('[SHOWS_DEBUG] Failed to download program PDF, stored original URL as fallback');
             }
         } else {
             delete_post_meta($post_id, '_tm_show_program_url');
@@ -204,11 +202,16 @@ function tm_sync_process_show($item, $dry_run = false) {
         }
 
         tm_sync_log('debug', 'Finished processing show.', ['sp_id' => $sp_id, 'post_id' => $post_id]);
+        error_log('[SHOWS_DEBUG] === FINISHED PROCESSING === Result: SUCCESS');
         return true;
     } catch (Exception $e) {
+        error_log('[SHOWS_DEBUG] === EXCEPTION: ' . $e->getMessage() . ' ===');
+        error_log('[SHOWS_DEBUG] Exception trace: ' . $e->getTraceAsString());
         tm_sync_log('error', 'Exception processing show item: ' . $e->getMessage(), ['item_id' => $item['id'] ?? 'unknown', 'trace' => $e->getTraceAsString()]);
         return false;
     } catch (Throwable $t) {
+        error_log('[SHOWS_DEBUG] === THROWABLE: ' . $t->getMessage() . ' ===');
+        error_log('[SHOWS_DEBUG] Throwable trace: ' . $t->getTraceAsString());
         tm_sync_log('error', 'Error processing show item: ' . $t->getMessage(), ['item_id' => $item['id'] ?? 'unknown', 'trace' => $t->getTraceAsString()]);
         return false;
     }
