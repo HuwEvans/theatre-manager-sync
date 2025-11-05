@@ -4,6 +4,11 @@
  * Handles creation and cleanup of synced images folder
  */
 
+// Include folder discovery functions for PDF downloads
+if (!function_exists('tm_sync_get_folder_id')) {
+    require_once dirname(__FILE__) . '/sync/folder-discovery.php';
+}
+
 /**
  * Get the synced images directory path
  * 
@@ -400,70 +405,126 @@ function tm_sync_download_pdf($pdf_url, $filename) {
         return false;
     }
 
-    // Ensure folder exists
-    $pdf_dir = tm_sync_get_images_dir();
-    if (!file_exists($pdf_dir)) {
-        if (!wp_mkdir_p($pdf_dir)) {
-            tm_sync_log('error', 'Failed to create sync folder for PDF', ['path' => $pdf_dir]);
-            return false;
-        }
+    tm_sync_log('debug', 'Downloading PDF from SharePoint using Graph API', [
+        'url' => substr($pdf_url, 0, 100) . '...',
+        'filename' => $filename
+    ]);
+
+    // Get access token for Graph API authentication
+    if (!class_exists('TM_Graph_Client')) {
+        tm_sync_log('error', 'TM_Graph_Client not available for PDF download');
+        return false;
     }
 
-    // Construct full file path
-    $file_path = trailingslashit($pdf_dir) . $filename;
-
-    // Download the PDF
-    // SharePoint redirect URLs need ?download=1 to get actual file, not HTML
-    $download_url = $pdf_url;
-    if (strpos($download_url, '?') === false) {
-        $download_url .= '?download=1';
-    } else {
-        $download_url .= '&download=1';
-    }
+    $client = new TM_Graph_Client();
+    $token = $client->get_access_token_public();
     
-    // Get access token for authentication
-    $access_token = null;
-    if (class_exists('TM_Graph_Client')) {
-        try {
-            $client = new TM_Graph_Client();
-            $reflection = new ReflectionClass('TM_Graph_Client');
-            $method = $reflection->getMethod('get_access_token');
-            $method->setAccessible(true);
-            $access_token = $method->invoke($client);
-        } catch (Exception $e) {
-            tm_sync_log('debug', 'Could not obtain access token for PDF: ' . $e->getMessage());
-        }
+    if (!$token) {
+        tm_sync_log('error', 'Failed to get access token for PDF download');
+        return false;
     }
 
-    // Prepare request headers
-    $headers = [];
-    if ($access_token) {
-        $headers['Authorization'] = "Bearer {$access_token}";
+    // Extract folder name from URL (e.g., "PDFs" from /Image Media/PDFs/filename.pdf)
+    $folder_name = tm_sync_extract_folder_from_url($pdf_url);
+    if (!$folder_name) {
+        tm_sync_log('warning', 'Could not extract folder name from PDF URL', ['url' => $pdf_url]);
+        return false;
     }
 
-    $response = wp_remote_get($download_url, [
-        'timeout' => 120,
+    // Get Site and List IDs
+    $site_id = 'miltonplayers.sharepoint.com,9122b47c-2748-446f-820e-ab3bc46b80d0,5d9211a6-6d28-4644-ad40-82fe3972fbf1';
+    $image_media_list_id = '36cd8ce2-6611-401a-ae0c-20dd4abcf36b';
+    
+    // Get folder ID for the PDF folder using generic folder discovery
+    $folder_id = tm_sync_get_folder_id($folder_name, $site_id, $image_media_list_id, $token);
+    
+    if (!$folder_id) {
+        tm_sync_log('error', 'Could not find PDF folder in Image Media', ['folder' => $folder_name]);
+        return false;
+    }
+
+    tm_sync_log('debug', 'Found PDF folder in Image Media', [
+        'folder' => $folder_name,
+        'folder_id' => $folder_id
+    ]);
+
+    // List files in folder to find the matching PDF
+    $search_url = "https://graph.microsoft.com/v1.0/sites/$site_id/lists/$image_media_list_id/drive/items/$folder_id/children";
+    
+    $response = wp_remote_get($search_url, [
+        'timeout' => 60,
+        'headers' => [
+            'Authorization' => 'Bearer ' . $token,
+        ],
         'sslverify' => true,
-        'redirection' => 10,
-        'headers' => $headers
     ]);
 
     if (is_wp_error($response)) {
-        tm_sync_log('debug', 'Failed to download PDF from SharePoint: ' . $response->get_error_message());
+        tm_sync_log('error', 'Failed to list PDF folder in Image Media', [
+            'error' => $response->get_error_message(),
+            'folder' => $folder_name
+        ]);
+        return false;
+    }
+
+    $body = wp_remote_retrieve_body($response);
+    $json = json_decode($body, true);
+    
+    if (!isset($json['value'])) {
+        tm_sync_log('error', 'Unexpected response from Graph API listing PDF folder', [
+            'folder' => $folder_name
+        ]);
+        return false;
+    }
+
+    // Find the file by matching filename
+    $file_id = null;
+    $pdf_filename = basename($pdf_url);
+    foreach ($json['value'] as $item) {
+        if (strtolower($item['name']) === strtolower($pdf_filename)) {
+            $file_id = $item['id'];
+            break;
+        }
+    }
+    
+    if (!$file_id) {
+        tm_sync_log('warning', 'PDF file not found in SharePoint folder', [
+            'filename' => $pdf_filename,
+            'folder' => $folder_name
+        ]);
+        return false;
+    }
+
+    tm_sync_log('debug', 'Found PDF in Image Media library', [
+        'filename' => $pdf_filename,
+        'file_id' => $file_id
+    ]);
+
+    // Download the file content using Graph API
+    $download_url = "https://graph.microsoft.com/v1.0/sites/$site_id/lists/$image_media_list_id/drive/items/$file_id/content";
+    
+    $response = wp_remote_get($download_url, [
+        'timeout' => 120,
+        'headers' => [
+            'Authorization' => 'Bearer ' . $token,
+        ],
+        'sslverify' => true,
+        'redirection' => 10,
+    ]);
+
+    if (is_wp_error($response)) {
+        tm_sync_log('error', 'Failed to download PDF from Image Media library', [
+            'filename' => $filename,
+            'error' => $response->get_error_message()
+        ]);
         return false;
     }
 
     $http_code = wp_remote_retrieve_response_code($response);
-    tm_sync_log('debug', 'PDF download response', ['http_code' => $http_code, 'url' => substr($download_url, 0, 100)]);
-    
     if ($http_code !== 200) {
-        // Log response headers and body for debugging
-        $response_headers = wp_remote_retrieve_headers($response);
-        $response_body = wp_remote_retrieve_body($response);
-        tm_sync_log('debug', 'PDF download HTTP error details', [
-            'http_code' => $http_code,
-            'content_type' => $response_headers['content-type'] ?? 'unknown',
-            'body_preview' => substr($response_body, 0, 200)
+        tm_sync_log('error', 'PDF download returned HTTP error', [
+            'filename' => $filename,
+            'http_code' => $http_code
         ]);
         return false;
     }
@@ -476,15 +537,27 @@ function tm_sync_download_pdf($pdf_url, $filename) {
 
     // Check if we got HTML instead of PDF (error indicator)
     if (strpos($file_content, '<!DOCTYPE') === 0 || strpos($file_content, '<html') === 0) {
-        tm_sync_log('debug', 'Downloaded content is HTML, not PDF', ['filename' => $filename]);
+        tm_sync_log('error', 'Downloaded content is HTML, not PDF', ['filename' => $filename]);
         return false;
     }
 
     // Verify it's a PDF
     if (strpos($file_content, '%PDF') !== 0) {
-        tm_sync_log('debug', 'Downloaded file does not start with PDF marker', ['filename' => $filename]);
-        // Still try to save it anyway
+        tm_sync_log('warning', 'Downloaded file does not start with PDF marker', ['filename' => $filename]);
+        // Still save it anyway, might be valid
     }
+
+    // Ensure folder exists
+    $pdf_dir = tm_sync_get_images_dir();
+    if (!file_exists($pdf_dir)) {
+        if (!wp_mkdir_p($pdf_dir)) {
+            tm_sync_log('error', 'Failed to create sync folder for PDF', ['path' => $pdf_dir]);
+            return false;
+        }
+    }
+
+    // Construct full file path
+    $file_path = trailingslashit($pdf_dir) . $filename;
 
     // Write file to disk
     $written = file_put_contents($file_path, $file_content);
@@ -493,9 +566,12 @@ function tm_sync_download_pdf($pdf_url, $filename) {
         return false;
     }
 
+    @chmod($file_path, 0644);
+
     tm_sync_log('info', 'Successfully downloaded and saved PDF', [
         'filename' => $filename,
-        'size' => strlen($file_content)
+        'size' => strlen($file_content),
+        'path' => $file_path
     ]);
 
     return $file_path;
