@@ -216,6 +216,10 @@ function tm_sync_process_season($item, $dry_run = false) {
                     );
                     if ($attachment_id) {
                         error_log('[SEASONS_DEBUG] Successfully attached 3-up front image: attachment_id=' . $attachment_id);
+                    } else {
+                        // Only store URL as fallback if download failed
+                        update_post_meta($post_id, '_tm_season_image_front_url', $image_front_url);
+                        error_log('[SEASONS_DEBUG] Stored fallback URL for front image');
                     }
                 }
                 
@@ -230,6 +234,10 @@ function tm_sync_process_season($item, $dry_run = false) {
                     );
                     if ($attachment_id) {
                         error_log('[SEASONS_DEBUG] Successfully attached 3-up back image: attachment_id=' . $attachment_id);
+                    } else {
+                        // Only store URL as fallback if download failed
+                        update_post_meta($post_id, '_tm_season_image_back_url', $image_back_url);
+                        error_log('[SEASONS_DEBUG] Stored fallback URL for back image');
                     }
                 }
                 
@@ -244,6 +252,10 @@ function tm_sync_process_season($item, $dry_run = false) {
                     );
                     if ($attachment_id) {
                         error_log('[SEASONS_DEBUG] Successfully attached website banner image: attachment_id=' . $attachment_id);
+                    } else {
+                        // Only store URL as fallback if download failed
+                        update_post_meta($post_id, '_tm_season_social_banner_url', $website_banner_url);
+                        error_log('[SEASONS_DEBUG] Stored fallback URL for banner image');
                     }
                 }
                 
@@ -258,6 +270,10 @@ function tm_sync_process_season($item, $dry_run = false) {
                     );
                     if ($attachment_id) {
                         error_log('[SEASONS_DEBUG] Successfully attached SM square image: attachment_id=' . $attachment_id);
+                    } else {
+                        // Only store URL as fallback if download failed
+                        update_post_meta($post_id, '_tm_season_sm_square_url', $sm_square_url);
+                        error_log('[SEASONS_DEBUG] Stored fallback URL for SM square image');
                     }
                 }
                 
@@ -272,22 +288,16 @@ function tm_sync_process_season($item, $dry_run = false) {
                     );
                     if ($attachment_id) {
                         error_log('[SEASONS_DEBUG] Successfully attached SM portrait image: attachment_id=' . $attachment_id);
+                    } else {
+                        // Only store URL as fallback if download failed
+                        update_post_meta($post_id, '_tm_season_sm_portrait_url', $sm_portrait_url);
+                        error_log('[SEASONS_DEBUG] Stored fallback URL for SM portrait image');
                     }
                 }
             }
         }
         
-        // Store direct SharePoint URLs as fallback (for reference)
-        // In case the attachment IDs are empty, we have the URLs as backup
-        if (empty(get_post_meta($post_id, '_tm_season_image_front', true)) && $image_front_url) {
-            update_post_meta($post_id, '_tm_season_image_front_url', $image_front_url);
-        }
-        if (empty(get_post_meta($post_id, '_tm_season_image_back', true)) && $image_back_url) {
-            update_post_meta($post_id, '_tm_season_image_back_url', $image_back_url);
-        }
-        update_post_meta($post_id, '_tm_season_social_banner_url', $website_banner_url);
-        update_post_meta($post_id, '_tm_season_sm_square_url', $sm_square_url);
-        update_post_meta($post_id, '_tm_season_sm_portrait_url', $sm_portrait_url);
+        // No longer store unconditional fallback URLs - they're only stored on failure above
 
         tm_sync_log('debug', 'Finished processing season.', ['sp_id' => $sp_id, 'post_id' => $post_id]);
         return true;

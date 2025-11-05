@@ -222,13 +222,18 @@ function tm_sync_download_and_attach_image($post_id, $image_url, $meta_key, $pre
     ]);
     
     // Check if we already have this attachment
+    // Only reuse if it's a valid attachment ID (numeric), not a URL
     $existing_id = get_post_meta($post_id, $meta_key, true);
-    if ($existing_id && !empty($existing_id)) {
-        tm_sync_log('debug', "Reusing existing $image_type attachment", [
-            'post_id' => $post_id,
-            'attachment_id' => $existing_id
-        ]);
-        return $existing_id;
+    if ($existing_id && !empty($existing_id) && is_numeric($existing_id)) {
+        $attachment_id = intval($existing_id);
+        // Verify the attachment actually exists
+        if (get_post_type($attachment_id) === 'attachment') {
+            tm_sync_log('debug', "Reusing existing $image_type attachment", [
+                'post_id' => $post_id,
+                'attachment_id' => $attachment_id
+            ]);
+            return $attachment_id;
+        }
     }
     
     // Download the image from SharePoint
