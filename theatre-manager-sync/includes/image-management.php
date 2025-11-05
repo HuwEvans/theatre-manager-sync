@@ -646,4 +646,78 @@ function tm_sync_get_pdf_url($filename) {
     return trailingslashit($base_url) . basename($filename);
 }
 
+/**
+ * Generate a thumbnail image from the first page of a PDF
+ * Uses ImageMagick/Ghostscript to create a JPEG preview
+ * 
+ * @param string $pdf_path Full path to the PDF file
+ * @param int $attachment_id WordPress attachment ID
+ * @return string|false URL to the generated thumbnail or false on failure
+ */
+function tm_sync_generate_pdf_thumbnail($pdf_path, $attachment_id) {
+    if (empty($pdf_path) || !file_exists($pdf_path)) {
+        error_log('[PDF_THUMBNAIL] PDF file not found: ' . $pdf_path);
+        return false;
+    }
+
+    // Check if ImageMagick is available
+    $imagick_path = trim(shell_exec('where magick 2>nul || which magick 2>/dev/null'));
+    if (empty($imagick_path) && !function_exists('imagick')) {
+        // Check if exec is disabled
+        if (function_exists('exec')) {
+            error_log('[PDF_THUMBNAIL] ImageMagick not found and exec() may be disabled');
+        } else {
+            error_log('[PDF_THUMBNAIL] exec() is disabled, cannot generate PDF thumbnails');
+        }
+        return false;
+    }
+
+    // Create thumbnail filename (replace .pdf with .jpg)
+    $thumb_filename = preg_replace('/\.pdf$/i', '-pdf-thumb.jpg', basename($pdf_path));
+    $thumb_path = dirname($pdf_path) . '/' . $thumb_filename;
+
+    try {
+        // Use ImageMagick to convert first page of PDF to JPEG
+        // -density: set resolution (higher = better quality but slower)
+        // [0]: only convert first page
+        // -quality: JPEG compression quality
+        $command = 'magick convert -density 150 "' . escapeshellarg($pdf_path) . '[0]" -quality 75 -resize 200x300 "' . escapeshellarg($thumb_path) . '"';
+        
+        error_log('[PDF_THUMBNAIL] Executing: ' . $command);
+        
+        $output = array();
+        $return_var = 0;
+        exec($command, $output, $return_var);
+
+        if ($return_var !== 0) {
+            error_log('[PDF_THUMBNAIL] ImageMagick conversion failed with return code: ' . $return_var);
+            error_log('[PDF_THUMBNAIL] Output: ' . implode(' | ', $output));
+            return false;
+        }
+
+        if (!file_exists($thumb_path)) {
+            error_log('[PDF_THUMBNAIL] Thumbnail file was not created at: ' . $thumb_path);
+            return false;
+        }
+
+        // Make the thumbnail writable
+        @chmod($thumb_path, 0644);
+
+        // Get the thumbnail URL
+        $thumb_url = tm_sync_get_images_url() . '/' . $thumb_filename;
+        
+        // Store thumbnail URL in attachment post meta
+        if ($attachment_id > 0) {
+            update_post_meta($attachment_id, '_tm_pdf_preview', $thumb_url);
+        }
+
+        error_log('[PDF_THUMBNAIL] Successfully generated thumbnail: ' . $thumb_url);
+        return $thumb_url;
+
+    } catch (Exception $e) {
+        error_log('[PDF_THUMBNAIL] Exception: ' . $e->getMessage());
+        return false;
+    }
+}
+
 ?>

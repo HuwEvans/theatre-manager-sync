@@ -49,6 +49,45 @@ jQuery(document).ready(function($) {
         });
     });
 
+    /**
+     * Handle ordered sync (Seasons -> Shows -> Cast)
+     */
+    $('#tm-sync-ordered').on('click', function() {
+        var $button = $(this);
+        var $status = $('#tm-sync-ordered-status');
+        var dryRun = $('#tm-sync-dry-run').is(':checked');
+
+        $button.prop('disabled', true);
+        $('.tm-sync-button').prop('disabled', true);
+        
+        updateStatus($status, 'Starting Seasons → Shows → Cast sync...', 'info');
+
+        $.ajax({
+            url: tm_sync_vars.ajax_url,
+            type: 'POST',
+            data: {
+                action: 'tm_sync_ordered',
+                nonce: tm_sync_vars.nonce,
+                dry_run: dryRun
+            },
+            success: function(response) {
+                if (response.success) {
+                    updateStatus($status, '✅ Success: ' + response.data, 'success');
+                } else {
+                    updateStatus($status, '❌ Error: ' + response.data, 'error');
+                }
+            },
+            error: function(xhr, status, error) {
+                updateStatus($status, 'Ajax error: ' + error, 'error');
+                console.error('Ordered sync error:', {xhr: xhr, status: status, error: error});
+            },
+            complete: function() {
+                $button.prop('disabled', false);
+                $('.tm-sync-button').prop('disabled', false);
+            }
+        });
+    });
+
     $('#tm-sync-all').on('click', function() {
         var $button = $(this);
         var $globalStatus = $('#tm-sync-global-status');
@@ -57,6 +96,7 @@ jQuery(document).ready(function($) {
         // Disable all buttons during sync
         $button.prop('disabled', true);
         $('.tm-sync-button').prop('disabled', true);
+        $('#tm-sync-ordered').prop('disabled', true);
         
         updateStatus($globalStatus, 'Starting global sync...', 'info');
 
@@ -80,6 +120,7 @@ jQuery(document).ready(function($) {
                 }
                 $button.prop('disabled', false);
                 $('.tm-sync-button').prop('disabled', false);
+                $('#tm-sync-ordered').prop('disabled', false);
                 return;
             }
 

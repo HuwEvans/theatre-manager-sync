@@ -66,6 +66,44 @@ add_action('wp_ajax_tm_sync_run', function() {
     wp_send_json_success($summary);
 });
 
+/**
+ * AJAX handler for syncing Seasons -> Shows -> Cast in specific order
+ * This ensures lookup fields are kept in sync
+ */
+add_action('wp_ajax_tm_sync_ordered', function() {
+    tm_sync_log('info', 'Ordered sync handler triggered');
+    check_ajax_referer('tm_sync_nonce', 'nonce');
+    
+    if (!current_user_can('manage_options')) {
+        tm_sync_log('error', 'Unauthorized ordered sync attempt');
+        wp_send_json_error('Unauthorized');
+        return;
+    }
+    
+    $dry_run = isset($_POST['dry_run']) ? filter_var($_POST['dry_run'], FILTER_VALIDATE_BOOLEAN) : false;
+    
+    tm_sync_log('info', 'Starting ordered sync (Seasons -> Shows -> Cast)', ['dry_run' => $dry_run]);
+    
+    $results = [];
+    
+    // Step 1: Sync Seasons first (dependencies: none)
+    tm_sync_log('info', 'Step 1: Syncing Seasons');
+    $results['season'] = tm_sync_seasons($dry_run);
+    
+    // Step 2: Sync Shows (depends on Seasons for lookup field)
+    tm_sync_log('info', 'Step 2: Syncing Shows');
+    $results['show'] = tm_sync_shows($dry_run);
+    
+    // Step 3: Sync Cast (depends on Shows for lookup field)
+    tm_sync_log('info', 'Step 3: Syncing Cast');
+    $results['cast'] = tm_sync_cast($dry_run);
+    
+    tm_sync_log('info', 'Ordered sync complete', ['results' => $results]);
+    
+    $summary = "Seasons: " . $results['season'] . " | Shows: " . $results['show'] . " | Cast: " . $results['cast'];
+    wp_send_json_success($summary);
+});
+
 
 add_action('wp_ajax_tm_sync_log_event', function() {
     check_ajax_referer('tm_sync_nonce');

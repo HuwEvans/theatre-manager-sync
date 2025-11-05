@@ -154,10 +154,35 @@ function tm_sync_process_show($item, $dry_run = false) {
             error_log('[SHOWS_DEBUG] tm_sync_download_pdf returned: ' . ($pdf_path ? 'success - ' . $pdf_path : 'false'));
             
             if ($pdf_path) {
-                // Store the local path
+                // Create WordPress attachment for the PDF
                 $pdf_url = tm_sync_get_pdf_url($pdf_filename);
-                update_post_meta($post_id, '_tm_show_program_url', $pdf_url);
-                error_log('[SHOWS_DEBUG] Stored local PDF URL: ' . $pdf_url);
+                
+                $attachment = [
+                    'post_mime_type' => 'application/pdf',
+                    'post_title'     => preg_replace('%\.[^.]+$%', '', basename($pdf_filename)),
+                    'post_content'   => '',
+                    'post_status'    => 'inherit'
+                ];
+                
+                $attachment_id = wp_insert_attachment($attachment, $pdf_path, $post_id);
+                
+                if (!is_wp_error($attachment_id)) {
+                    // Generate attachment metadata
+                    $attach_data = wp_generate_attachment_metadata($attachment_id, $pdf_path);
+                    wp_update_attachment_metadata($attachment_id, $attach_data);
+                    
+                    // Generate PDF thumbnail for admin preview
+                    tm_sync_generate_pdf_thumbnail($pdf_path, $attachment_id);
+                    
+                    // Store attachment ID and URL (use standard _tm_show_program meta for attachment ID)
+                    update_post_meta($post_id, '_tm_show_program', $attachment_id);
+                    update_post_meta($post_id, '_tm_show_program_url', $pdf_url);
+                    error_log('[SHOWS_DEBUG] Created PDF attachment: ID=' . $attachment_id . ', URL=' . $pdf_url);
+                } else {
+                    // If attachment creation fails, just store the URL
+                    update_post_meta($post_id, '_tm_show_program_url', $pdf_url);
+                    error_log('[SHOWS_DEBUG] Failed to create attachment, stored URL: ' . $pdf_url);
+                }
             } else {
                 // Store SharePoint URL as fallback if local download fails
                 // Users can still access PDF from SharePoint
@@ -167,6 +192,7 @@ function tm_sync_process_show($item, $dry_run = false) {
         } else {
             error_log('[SHOWS_DEBUG] No PDF field found in extracted fields');
             delete_post_meta($post_id, '_tm_show_program_url');
+            delete_post_meta($post_id, '_tm_show_program_attachment_id');
         }
         
         // Sync SM Image if present
