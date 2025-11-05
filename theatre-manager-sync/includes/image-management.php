@@ -199,6 +199,145 @@ function tm_sync_activate_setup() {
     tm_sync_log('info', 'Theatre Manager Sync activated - setup completed');
 }
 
+/**
+ * Download an image from a URL and attach it to a post
+ * This is used for Season images where SharePoint returns full redirect URLs
+ * 
+ * @param int $post_id The post ID to attach the image to
+ * @param string $image_url The full SharePoint URL to download from
+ * @param string $meta_key The meta key to store the attachment ID in
+ * @param string $prefix Filename prefix for the downloaded image
+ * @param string $image_type Human-readable image type for logging
+ * 
+ * @return int|null Attachment ID if successful, null otherwise
+ */
+function tm_sync_download_and_attach_image($post_id, $image_url, $meta_key, $prefix, $image_type = 'image') {
+    if (empty($image_url) || empty($post_id)) {
+        return null;
+    }
+    
+    tm_sync_log('debug', "Downloading season image: $image_type", [
+        'post_id' => $post_id,
+        'url' => substr($image_url, 0, 100) . '...'
+    ]);
+    
+    // Check if we already have this attachment
+    $existing_id = get_post_meta($post_id, $meta_key, true);
+    if ($existing_id && !empty($existing_id)) {
+        tm_sync_log('debug', "Reusing existing $image_type attachment", [
+            'post_id' => $post_id,
+            'attachment_id' => $existing_id
+        ]);
+        return $existing_id;
+    }
+    
+    // Download the image from SharePoint
+    $response = wp_remote_get($image_url, [
+        'timeout' => 60,
+        'sslverify' => true,
+        'redirection' => 10,
+    ]);
+    
+    if (is_wp_error($response)) {
+        tm_sync_log('error', "Failed to download season $image_type", [
+            'post_id' => $post_id,
+            'error' => $response->get_error_message()
+        ]);
+        return null;
+    }
+    
+    $http_code = wp_remote_retrieve_response_code($response);
+    if ($http_code !== 200) {
+        tm_sync_log('error', "Failed to download season $image_type - HTTP error", [
+            'post_id' => $post_id,
+            'http_code' => $http_code
+        ]);
+        return null;
+    }
+    
+    $file_content = wp_remote_retrieve_body($response);
+    if (empty($file_content)) {
+        tm_sync_log('error', "Downloaded season $image_type is empty", [
+            'post_id' => $post_id
+        ]);
+        return null;
+    }
+    
+    // Get the synced images folder
+    $images_dir = tm_sync_get_images_dir();
+    if (!file_exists($images_dir)) {
+        tm_sync_create_images_folder();
+    }
+    
+    // Create filename - extract extension from URL or use default jpg
+    $filename = $prefix . '.jpg';
+    if (preg_match('/\.(\w+)(?:\?|$)/', $image_url, $matches)) {
+        $ext = strtolower($matches[1]);
+        if (in_array($ext, ['jpg', 'jpeg', 'png', 'gif', 'webp'])) {
+            $filename = $prefix . '.' . $ext;
+        }
+    }
+    
+    $dest_file = $images_dir . '/' . sanitize_file_name($filename);
+    
+    // Write the file
+    if (!file_put_contents($dest_file, $file_content)) {
+        tm_sync_log('error', "Failed to write season $image_type to disk", [
+            'post_id' => $post_id,
+            'path' => $dest_file
+        ]);
+        return null;
+    }
+    
+    @chmod($dest_file, 0644);
+    
+    // Determine MIME type
+    $ext = strtolower(pathinfo($dest_file, PATHINFO_EXTENSION));
+    $mime_types = [
+        'jpg' => 'image/jpeg',
+        'jpeg' => 'image/jpeg',
+        'png' => 'image/png',
+        'gif' => 'image/gif',
+        'webp' => 'image/webp',
+    ];
+    $mime_type = $mime_types[$ext] ?? 'image/jpeg';
+    
+    // Create WordPress attachment
+    $attachment_data = [
+        'post_mime_type' => $mime_type,
+        'post_title' => $prefix,
+        'post_content' => '',
+        'post_status' => 'inherit',
+    ];
+    
+    $attachment_id = wp_insert_attachment($attachment_data, $dest_file, $post_id);
+    
+    if (is_wp_error($attachment_id)) {
+        tm_sync_log('error', "Failed to create season $image_type attachment", [
+            'post_id' => $post_id,
+            'error' => $attachment_id->get_error_message()
+        ]);
+        @unlink($dest_file);
+        return null;
+    }
+    
+    // Generate attachment metadata
+    require_once ABSPATH . 'wp-admin/includes/image.php';
+    $attach_data = wp_generate_attachment_metadata($attachment_id, $dest_file);
+    wp_update_attachment_metadata($attachment_id, $attach_data);
+    
+    // Store the attachment ID in post meta
+    update_post_meta($post_id, $meta_key, $attachment_id);
+    
+    tm_sync_log('info', "Successfully attached season $image_type", [
+        'post_id' => $post_id,
+        'attachment_id' => $attachment_id,
+        'filename' => $filename
+    ]);
+    
+    return $attachment_id;
+}
+
 // Create images folder on WordPress init
 add_action('init', function() {
     // Only on admin pages to avoid repeated checks on frontend

@@ -181,30 +181,19 @@ function tm_sync_process_season($item, $dry_run = false) {
         update_post_meta($post_id, '_tm_season_is_current', $is_current_season);
         update_post_meta($post_id, '_tm_season_is_upcoming', $is_upcoming_season);
         
-        // Store all image URLs - images will be synced below
-        // _tm_season_image_front and _tm_season_image_back are synced via tm_sync_image_for_post
-        // Store additional images
-        update_post_meta($post_id, '_tm_season_social_banner', $website_banner_url);
-        update_post_meta($post_id, '_tm_season_sm_square', $sm_square_url);
-        update_post_meta($post_id, '_tm_season_sm_portrait', $sm_portrait_url);
+        // For images: Since SharePoint returns URLs not filenames, we need a different approach
+        // We'll directly download and attach the images using the URL
+        // The images are already coming as full URLs to downloadable content
         
-        // VERIFY METADATA WAS SAVED
-        $verify_name = get_post_meta($post_id, '_tm_season_name', true);
-        $verify_start = get_post_meta($post_id, '_tm_season_start_date', true);
-        $verify_end = get_post_meta($post_id, '_tm_season_end_date', true);
-        $verify_front = get_post_meta($post_id, '_tm_season_image_front', true);
-        $verify_sm_square = get_post_meta($post_id, '_tm_season_sm_square', true);
-        $verify_sm_portrait = get_post_meta($post_id, '_tm_season_sm_portrait', true);
+        tm_sync_log('debug', 'Processing season images', [
+            'post_id' => $post_id,
+            'website_banner_url_set' => !empty($website_banner_url),
+            'front_url_set' => !empty($image_front_url),
+            'back_url_set' => !empty($image_back_url),
+            'square_url_set' => !empty($sm_square_url),
+            'portrait_url_set' => !empty($sm_portrait_url),
+        ]);
         
-        error_log('[SEASONS_DEBUG] Saved metadata for season: name=' . $name . ', post_id=' . $post_id);
-        error_log('[SEASONS_DEBUG] VERIFICATION - Retrieved from DB:');
-        error_log('[SEASONS_DEBUG] - Name: "' . $verify_name . '" (matches: ' . ($verify_name === $name ? 'YES' : 'NO') . ')');
-        error_log('[SEASONS_DEBUG] - Start date: "' . $verify_start . '" (expected: "' . $start_date . '", matches: ' . ($verify_start === $start_date ? 'YES' : 'NO') . ')');
-        error_log('[SEASONS_DEBUG] - End date: "' . $verify_end . '" (expected: "' . $end_date . '", matches: ' . ($verify_end === $end_date ? 'YES' : 'NO') . ')');
-        error_log('[SEASONS_DEBUG] - Front image: "' . ($verify_front ? substr($verify_front, 0, 50) . '...' : 'EMPTY') . '"');
-        error_log('[SEASONS_DEBUG] - SM Square: "' . ($verify_sm_square ? substr($verify_sm_square, 0, 50) . '...' : 'EMPTY') . '"');
-        error_log('[SEASONS_DEBUG] - SM Portrait: "' . ($verify_sm_portrait ? substr($verify_sm_portrait, 0, 50) . '...' : 'EMPTY') . '"');
-
         // Get access token for image syncing
         if (!class_exists('TM_Graph_Client')) {
             tm_sync_log('warning', 'TM_Graph_Client not available for image sync');
@@ -213,91 +202,92 @@ function tm_sync_process_season($item, $dry_run = false) {
             $token = $client->get_access_token_public();
             
             if ($token) {
-                // Get Site and List IDs
-                $site_id = 'miltonplayers.sharepoint.com,9122b47c-2748-446f-820e-ab3bc46b80d0,5d9211a6-6d28-4644-ad40-82fe3972fbf1';
-                $image_media_list_id = '36cd8ce2-6611-401a-ae0c-20dd4abcf36b';
+                // For Season images, we're getting full URLs from SharePoint fields
+                // These are redirect URLs that we need to download directly
                 
-                // Sync front image
+                // Sync front image (3-upFront)
                 if ($image_front_url) {
-                    $front_filename = basename($image_front_url);
-                    tm_sync_image_for_post(
+                    $attachment_id = tm_sync_download_and_attach_image(
                         $post_id,
-                        $front_filename,
                         $image_front_url,
                         '_tm_season_image_front',
-                        $sp_id,
-                        'image_front',
-                        $site_id,
-                        $image_media_list_id,
-                        $token
+                        'season-3up-front-' . $sp_id,
+                        'image_front'
                     );
+                    if ($attachment_id) {
+                        error_log('[SEASONS_DEBUG] Successfully attached 3-up front image: attachment_id=' . $attachment_id);
+                    }
                 }
                 
-                // Sync back image
+                // Sync back image (3-upBack)
                 if ($image_back_url) {
-                    $back_filename = basename($image_back_url);
-                    tm_sync_image_for_post(
+                    $attachment_id = tm_sync_download_and_attach_image(
                         $post_id,
-                        $back_filename,
                         $image_back_url,
                         '_tm_season_image_back',
-                        $sp_id,
-                        'image_back',
-                        $site_id,
-                        $image_media_list_id,
-                        $token
+                        'season-3up-back-' . $sp_id,
+                        'image_back'
                     );
+                    if ($attachment_id) {
+                        error_log('[SEASONS_DEBUG] Successfully attached 3-up back image: attachment_id=' . $attachment_id);
+                    }
                 }
                 
                 // Sync social banner / website banner
                 if ($website_banner_url) {
-                    $banner_filename = basename($website_banner_url);
-                    tm_sync_image_for_post(
+                    $attachment_id = tm_sync_download_and_attach_image(
                         $post_id,
-                        $banner_filename,
                         $website_banner_url,
                         '_tm_season_social_banner',
-                        $sp_id,
-                        'social_banner',
-                        $site_id,
-                        $image_media_list_id,
-                        $token
+                        'season-website-banner-' . $sp_id,
+                        'social_banner'
                     );
+                    if ($attachment_id) {
+                        error_log('[SEASONS_DEBUG] Successfully attached website banner image: attachment_id=' . $attachment_id);
+                    }
                 }
                 
                 // Sync SM Square image
                 if ($sm_square_url) {
-                    $square_filename = basename($sm_square_url);
-                    tm_sync_image_for_post(
+                    $attachment_id = tm_sync_download_and_attach_image(
                         $post_id,
-                        $square_filename,
                         $sm_square_url,
                         '_tm_season_sm_square',
-                        $sp_id,
-                        'sm_square',
-                        $site_id,
-                        $image_media_list_id,
-                        $token
+                        'season-sm-square-' . $sp_id,
+                        'sm_square'
                     );
+                    if ($attachment_id) {
+                        error_log('[SEASONS_DEBUG] Successfully attached SM square image: attachment_id=' . $attachment_id);
+                    }
                 }
                 
                 // Sync SM Portrait image
                 if ($sm_portrait_url) {
-                    $portrait_filename = basename($sm_portrait_url);
-                    tm_sync_image_for_post(
+                    $attachment_id = tm_sync_download_and_attach_image(
                         $post_id,
-                        $portrait_filename,
                         $sm_portrait_url,
                         '_tm_season_sm_portrait',
-                        $sp_id,
-                        'sm_portrait',
-                        $site_id,
-                        $image_media_list_id,
-                        $token
+                        'season-sm-portrait-' . $sp_id,
+                        'sm_portrait'
                     );
+                    if ($attachment_id) {
+                        error_log('[SEASONS_DEBUG] Successfully attached SM portrait image: attachment_id=' . $attachment_id);
+                    }
                 }
             }
         }
+        
+        // Store direct SharePoint URLs as fallback (for reference)
+        // In case the attachment IDs are empty, we have the URLs as backup
+        if (empty(get_post_meta($post_id, '_tm_season_image_front', true)) && $image_front_url) {
+            update_post_meta($post_id, '_tm_season_image_front_url', $image_front_url);
+        }
+        if (empty(get_post_meta($post_id, '_tm_season_image_back', true)) && $image_back_url) {
+            update_post_meta($post_id, '_tm_season_image_back_url', $image_back_url);
+        }
+        update_post_meta($post_id, '_tm_season_social_banner_url', $website_banner_url);
+        update_post_meta($post_id, '_tm_season_sm_square_url', $sm_square_url);
+        update_post_meta($post_id, '_tm_season_sm_portrait_url', $sm_portrait_url);
 
         tm_sync_log('debug', 'Finished processing season.', ['sp_id' => $sp_id, 'post_id' => $post_id]);
         return true;
