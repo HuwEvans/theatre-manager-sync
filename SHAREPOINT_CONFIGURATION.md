@@ -184,16 +184,24 @@ The plugin uses a single SharePoint site. Configure the site ID in the plugin se
 |------------|------|----------|-------|
 | Title | Text | Yes | Index/identifier (not synced) |
 | ShowName | Text | Yes | Show/production name |
+| TimeSlot | Choice | No | Season slot: Fall, Winter, Spring |
 | Author | Text | No | Playwright/author name |
+| SubAuthors | Text | No | Co-authors/collaborators (comma-separated) |
 | Director | Text | No | Director name |
 | AssociateDirector | Text | No | Associate director name |
 | StartDate | Date/Time | No | Performance start date |
 | EndDate | Date/Time | No | Performance end date |
-| ShowDatesText | Text | No | Text description of show dates |
+| ShowDatesText | Text | No | Text description of show dates (e.g., "Oct 15-20, 2025") |
 | Description | Multi-line Text | No | Show synopsis/description |
-| ProgramFileURL | Hyperlink | No | Program PDF URL |
+| ProgramFileURL | Hyperlink | No | Program PDF URL or document link |
+| SMImage | Hyperlink/Image | No | Social media promotional image |
 | SeasonIDLookup | Lookup | Yes | Link to Seasons list (looks up SeasonName) |
 | SeasonIDLookupSeasonName | Lookup | No | Returns season name from lookup |
+
+**Choice Options for TimeSlot:**
+- Fall
+- Winter
+- Spring
 
 **Lookup Configuration:**
 - Source List: Seasons
