@@ -50,15 +50,15 @@ function tm_sync_process_cast($item, $dry_run = false) {
         error_log('[CAST_DEBUG] Field keys: ' . implode(', ', array_keys((array)$fields)));
         
         $sp_id = $item['id'] ?? null;
-        // SharePoint field mapping for Cast:
-        // - CharacterName contains character name (fallback to Title)
-        // - ActorName contains actor/performer name
+        // SharePoint field mapping for Cast (using internal field names):
+        // - CharacterName (field_2) contains character name (fallback to Title)
+        // - ActorName (field_3) contains actor/performer name
         // - Headshot is the actor's picture
-        // - ShowIDLookup links to show, ShowIDLookupShowName is the show name
-        $character_name = trim($fields['CharacterName'] ?? $fields['Title'] ?? '');
-        $actor_name = trim($fields['ActorName'] ?? '');
+        // - ShowIDLookup links to show, ShowIDLookup:ShowName is the show name
+        $character_name = trim($fields['field_2'] ?? $fields['Title'] ?? '');
+        $actor_name = trim($fields['field_3'] ?? '');
         $show_lookup = trim($fields['ShowIDLookup'] ?? '');
-        $show_lookup_name = trim($fields['ShowIDLookupShowName'] ?? '');
+        $show_lookup_name = trim($fields['ShowIDLookup_x003a_ShowName'] ?? '');
         
         // Picture/Headshot can be a string or an object with Url property
         $picture_url = '';
