@@ -301,7 +301,7 @@ class TM_Graph_Client {
             'Cast' => ['Title', 'CharacterName', 'ActorName', 'ShowIDLookup', 'ShowIDLookupShowName', 'Headshot', 'Notes'],
             'Contributors' => ['Title', 'Name', 'Company', 'Tier', 'DonationDate', 'DonationAmount', 'Contact', 'Email'],
             'Seasons' => ['Title', 'SeasonName', 'StartDate', 'EndDate', 'IsCurrentSeason', 'IsUpcomingSeason', 'WebsiteBanner', '3-upFront', '3-upBack', 'SMSquare', 'SMPortrait', 'Description'],
-            'Shows' => ['Title', 'ShowName', 'Author', 'Director', 'AssociateDirector', 'StartDate', 'EndDate', 'ShowDatesText', 'Description', 'ProgramFileURL', 'SeasonIDLookup', 'SeasonIDLookupSeasonName'],
+            'Shows' => ['Title', 'ShowName', 'TimeSlot', 'Author', 'SubAuthors', 'Director', 'AssociateDirector', 'SMImage', 'StartDate', 'EndDate', 'ShowDatesText', 'Description', 'ProgramFileURL', 'SeasonIDLookup', 'SeasonIDLookupSeasonName'],
             'Sponsors' => ['Title', 'Company', 'SponsorshipLevel', 'Website', 'Logo', 'Contact', 'Email'],
             'Testimonials' => ['Title', 'Comment', 'RatingNumber', 'Author', 'AuthorTitle', 'AuthorCompany', 'Date', 'Approved'],
         ];
