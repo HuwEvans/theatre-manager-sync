@@ -295,13 +295,16 @@ class TM_Graph_Client {
      */
     private function get_fields_for_list($list_name) {
         // Map list names to their required fields
+        // NOTE: Use INTERNAL field names, not display names!
+        // SharePoint fields like "ShowName" might be stored as "field_2" internally
+        // URL-encoded names like "Sub-Authors" become "Sub_x002d_Authors"
         $field_map = [
             'Advertisers' => ['Title', 'Company', 'Contact', 'Website', 'Logo', 'Description'],
             'Board Members' => ['Title', 'Name', 'Position', 'Photo', 'Bio', 'Contact', 'Email'],
             'Cast' => ['Title', 'CharacterName', 'ActorName', 'ShowIDLookup', 'ShowIDLookupShowName', 'Headshot', 'Notes'],
             'Contributors' => ['Title', 'Name', 'Company', 'Tier', 'DonationDate', 'DonationAmount', 'Contact', 'Email'],
             'Seasons' => ['Title', 'SeasonName', 'StartDate', 'EndDate', 'IsCurrentSeason', 'IsUpcomingSeason', 'WebsiteBanner', '3-upFront', '3-upBack', 'SMSquare', 'SMPortrait', 'Description'],
-            'Shows' => ['Title', 'ShowName', 'TimeSlot', 'Author', 'SubAuthors', 'Director', 'AssociateDirector', 'SMImage', 'StartDate', 'EndDate', 'ShowDatesText', 'Description', 'ProgramFileURL', 'SeasonIDLookup', 'SeasonIDLookupSeasonName'],
+            'Shows' => ['Title', 'field_2', 'TimeSlot', 'Author', 'Sub_x002d_Authors', 'field_4', 'field_5', 'SMImage', 'field_6', 'field_7', 'field_8', 'field_9', 'field_10', 'SeasonIDLookup', 'SeasonIDLookup_x003a_SeasonName'],
             'Sponsors' => ['Title', 'Company', 'SponsorshipLevel', 'Website', 'Logo', 'Contact', 'Email'],
             'Testimonials' => ['Title', 'Comment', 'RatingNumber', 'Author', 'AuthorTitle', 'AuthorCompany', 'Date', 'Approved'],
         ];

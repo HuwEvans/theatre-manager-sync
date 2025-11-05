@@ -58,19 +58,20 @@ function tm_sync_process_show($item, $dry_run = false) {
         // - StartDate, EndDate, ShowDatesText for dates
         // - Description (synopsis), ProgramFileURL
         // - SeasonIDLookup links to season
-        $name = trim($fields['ShowName'] ?? $fields['Title'] ?? '');
+        // Use INTERNAL field names (e.g., field_2, field_3, etc)
+        $name = trim($fields['field_2'] ?? $fields['Title'] ?? '');
         $time_slot = trim($fields['TimeSlot'] ?? '');
         $author = trim($fields['Author'] ?? '');
-        $sub_authors = trim($fields['SubAuthors'] ?? '');
-        $director = trim($fields['Director'] ?? '');
-        $associate_director = trim($fields['AssociateDirector'] ?? '');
-        $start_date = trim($fields['StartDate'] ?? '');
-        $end_date = trim($fields['EndDate'] ?? '');
-        $show_dates_text = trim($fields['ShowDatesText'] ?? '');
-        $description = trim($fields['Description'] ?? '');
-        $program_file_url = trim($fields['ProgramFileURL'] ?? '');
+        $sub_authors = trim($fields['Sub_x002d_Authors'] ?? '');
+        $director = trim($fields['field_4'] ?? '');
+        $associate_director = trim($fields['field_5'] ?? '');
+        $start_date = trim($fields['field_6'] ?? '');
+        $end_date = trim($fields['field_7'] ?? '');
+        $show_dates_text = trim($fields['field_8'] ?? '');
+        $description = trim($fields['field_9'] ?? '');
+        $program_file_url = trim($fields['field_10'] ?? '');
         $season_lookup = trim($fields['SeasonIDLookup'] ?? '');
-        $season_lookup_name = trim($fields['SeasonIDLookupSeasonName'] ?? '');
+        $season_lookup_name = trim($fields['SeasonIDLookup_x003a_SeasonName'] ?? '');
         
         // Helper function to extract URL from hyperlink/image field
         $extract_url = function($field) {
