@@ -237,7 +237,20 @@ function tm_sync_download_and_attach_image($post_id, $image_url, $meta_key, $pre
     }
     
     // Download the image from SharePoint
-    $response = wp_remote_get($image_url, [
+    // SharePoint redirect URLs (:i:/g/ID format) need ?download=1 to get actual file, not HTML
+    $download_url = $image_url;
+    if (strpos($download_url, '?') === false) {
+        $download_url .= '?download=1';
+    } else {
+        $download_url .= '&download=1';
+    }
+    
+    tm_sync_log('debug', "Using download URL for season $image_type", [
+        'post_id' => $post_id,
+        'url' => substr($download_url, 0, 150) . '...'
+    ]);
+    
+    $response = wp_remote_get($download_url, [
         'timeout' => 60,
         'sslverify' => true,
         'redirection' => 10,
@@ -264,6 +277,15 @@ function tm_sync_download_and_attach_image($post_id, $image_url, $meta_key, $pre
     if (empty($file_content)) {
         tm_sync_log('error', "Downloaded season $image_type is empty", [
             'post_id' => $post_id
+        ]);
+        return null;
+    }
+    
+    // Check if we got HTML instead of an image (error indicator)
+    if (strpos($file_content, '<!DOCTYPE') === 0 || strpos($file_content, '<html') === 0) {
+        tm_sync_log('error', "Downloaded season $image_type is HTML, not an image - possible permission issue", [
+            'post_id' => $post_id,
+            'first_chars' => substr($file_content, 0, 100)
         ]);
         return null;
     }
