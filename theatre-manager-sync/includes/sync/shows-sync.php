@@ -52,12 +52,16 @@ function tm_sync_process_show($item, $dry_run = false) {
         $sp_id = $item['id'] ?? null;
         // SharePoint field mapping for Shows:
         // - ShowName contains show name (fallback to Title)
-        // - Author, Director, AssociateDirector for people
+        // - TimeSlot for show slot (Fall/Winter/Spring)
+        // - Author, Sub-Authors for people
+        // - Director, AssociateDirector for directors
         // - StartDate, EndDate, ShowDatesText for dates
         // - Description (synopsis), ProgramFileURL
         // - SeasonIDLookup links to season
         $name = trim($fields['ShowName'] ?? $fields['Title'] ?? '');
+        $time_slot = trim($fields['TimeSlot'] ?? '');
         $author = trim($fields['Author'] ?? '');
+        $sub_authors = trim($fields['Sub-Authors'] ?? $fields['SubAuthors'] ?? '');
         $director = trim($fields['Director'] ?? '');
         $associate_director = trim($fields['AssociateDirector'] ?? '');
         $start_date = trim($fields['StartDate'] ?? '');
@@ -80,7 +84,7 @@ function tm_sync_process_show($item, $dry_run = false) {
         // Extract SM Image URL
         $sm_image_url = $extract_url($fields['SMImage'] ?? '');
         
-        error_log('[SHOWS_DEBUG] Extracted fields: name=' . $name . ', author=' . $author . ', director=' . $director . ', season=' . $season_lookup_name . ', sm_image=' . substr($sm_image_url, 0, 60));
+        error_log('[SHOWS_DEBUG] Extracted fields: name=' . $name . ', timeslot=' . $time_slot . ', author=' . $author . ', sub_authors=' . $sub_authors . ', director=' . $director . ', season=' . $season_lookup_name . ', sm_image=' . substr($sm_image_url, 0, 60));
 
         tm_sync_log('debug', 'Extracted fields', ['sp_id' => $sp_id, 'name' => $name, 'author' => $author, 'director' => $director, 'season' => $season_lookup_name]);
 
@@ -128,7 +132,9 @@ function tm_sync_process_show($item, $dry_run = false) {
 
         // Update show metadata
         update_post_meta($post_id, '_tm_show_name', $name);
+        update_post_meta($post_id, '_tm_show_time_slot', $time_slot);
         update_post_meta($post_id, '_tm_show_author', $author);
+        update_post_meta($post_id, '_tm_show_sub_authors', $sub_authors);
         update_post_meta($post_id, '_tm_show_director', $director);
         update_post_meta($post_id, '_tm_show_associate_director', $associate_director);
         update_post_meta($post_id, '_tm_show_synopsis', $description);  // Description from SharePoint maps to synopsis
