@@ -307,17 +307,20 @@ function tm_sync_download_image_from_media_library(
         'size' => strlen($file_content)
     ]);
 
-    // Get upload directory
-    $wp_upload_dir = wp_upload_dir();
-    $upload_path = $wp_upload_dir['path'];
+    // Get upload directory - use dedicated synced images folder
+    $images_dir = tm_sync_get_images_dir();
+    if (!file_exists($images_dir)) {
+        tm_sync_create_images_folder();
+    }
+    $upload_path = $images_dir;
 
     // Create destination filename
     $safe_filename = sanitize_file_name($filename);
     $dest_file = $upload_path . '/' . $filename_prefix . '-' . $safe_filename;
 
-    // Copy file directly to WordPress uploads folder
+    // Copy file directly to synced images folder
     if (!file_put_contents($dest_file, $file_content)) {
-        tm_sync_log('error', 'Failed to write file to uploads folder', [
+        tm_sync_log('error', 'Failed to write file to synced images folder', [
             'filename' => $filename,
             'dest' => $dest_file
         ]);
