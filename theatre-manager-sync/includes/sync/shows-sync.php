@@ -142,7 +142,26 @@ function tm_sync_process_show($item, $dry_run = false) {
         update_post_meta($post_id, '_tm_show_show_dates', $show_dates_text);
         update_post_meta($post_id, '_tm_show_start_date', $start_date);
         update_post_meta($post_id, '_tm_show_end_date', $end_date);
-        update_post_meta($post_id, '_tm_show_program_url', $program_file_url);
+        
+        // Handle Program PDF URL - download and store locally
+        if ($program_file_url) {
+            // Create a safe filename based on show name and ID
+            $pdf_filename = sanitize_file_name($name . '-program-' . $sp_id . '.pdf');
+            
+            $pdf_path = tm_sync_download_pdf($program_file_url, $pdf_filename);
+            if ($pdf_path) {
+                // Store the local path
+                $pdf_url = tm_sync_get_pdf_url($pdf_filename);
+                update_post_meta($post_id, '_tm_show_program_url', $pdf_url);
+                error_log('[SHOWS_DEBUG] Successfully downloaded program PDF: ' . $pdf_url);
+            } else {
+                // Store original URL as fallback if download failed
+                update_post_meta($post_id, '_tm_show_program_url', $program_file_url);
+                error_log('[SHOWS_DEBUG] Failed to download program PDF, stored original URL as fallback');
+            }
+        } else {
+            delete_post_meta($post_id, '_tm_show_program_url');
+        }
         
         // Sync SM Image if present
         if ($sm_image_url) {

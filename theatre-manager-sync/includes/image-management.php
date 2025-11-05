@@ -373,4 +373,145 @@ add_action('init', function() {
     }
 }, 5); // Early priority
 
+/**
+ * Download PDF from SharePoint and save to sync folder
+ * 
+ * @param string $pdf_url URL or object containing PDF file from SharePoint
+ * @param string $filename Filename to save as (should include .pdf extension)
+ * @return string|false Full path to downloaded PDF file, or false on failure
+ */
+function tm_sync_download_pdf($pdf_url, $filename) {
+    if (empty($pdf_url) || empty($filename)) {
+        tm_sync_log('warning', 'PDF download called with empty URL or filename', [
+            'url' => substr($pdf_url, 0, 50) ?? 'empty',
+            'filename' => $filename
+        ]);
+        return false;
+    }
+
+    // Extract URL if SharePoint returned an object
+    if (is_array($pdf_url)) {
+        $pdf_url = $pdf_url['Url'] ?? '';
+    } elseif (is_object($pdf_url)) {
+        $pdf_url = $pdf_url->Url ?? '';
+    }
+
+    if (empty($pdf_url)) {
+        tm_sync_log('warning', 'Could not extract URL from PDF field');
+        return false;
+    }
+
+    // Ensure folder exists
+    $pdf_dir = tm_sync_get_images_dir();
+    if (!file_exists($pdf_dir)) {
+        if (!wp_mkdir_p($pdf_dir)) {
+            tm_sync_log('error', 'Failed to create sync folder for PDF', ['path' => $pdf_dir]);
+            return false;
+        }
+    }
+
+    // Construct full file path
+    $file_path = trailingslashit($pdf_dir) . $filename;
+
+    tm_sync_log('debug', 'Downloading PDF from SharePoint', [
+        'url' => substr($pdf_url, 0, 100) . '...',
+        'filename' => $filename
+    ]);
+
+    // Download the PDF
+    // SharePoint redirect URLs (:i:/g/ID format) need ?download=1 to get actual file, not HTML
+    $download_url = $pdf_url;
+    if (strpos($download_url, '?') === false) {
+        $download_url .= '?download=1';
+    } else {
+        $download_url .= '&download=1';
+    }
+
+    $response = wp_remote_get($download_url, [
+        'timeout' => 120,
+        'sslverify' => true,
+        'redirection' => 10,
+    ]);
+
+    if (is_wp_error($response)) {
+        tm_sync_log('error', 'Failed to download PDF from SharePoint', [
+            'url' => substr($pdf_url, 0, 100) . '...',
+            'error' => $response->get_error_message()
+        ]);
+        return false;
+    }
+
+    $http_code = wp_remote_retrieve_response_code($response);
+    if ($http_code !== 200) {
+        tm_sync_log('error', 'PDF download returned HTTP error', [
+            'url' => substr($pdf_url, 0, 100) . '...',
+            'http_code' => $http_code
+        ]);
+        return false;
+    }
+
+    $file_content = wp_remote_retrieve_body($response);
+    if (empty($file_content)) {
+        tm_sync_log('error', 'Downloaded PDF is empty', ['filename' => $filename]);
+        return false;
+    }
+
+    // Check if we got HTML instead of PDF (error indicator)
+    if (strpos($file_content, '<!DOCTYPE') === 0 || strpos($file_content, '<html') === 0) {
+        tm_sync_log('error', 'Downloaded PDF is HTML, not PDF - possible permission issue', [
+            'filename' => $filename,
+            'first_chars' => substr($file_content, 0, 100)
+        ]);
+        return false;
+    }
+
+    // Verify it's a PDF
+    if (strpos($file_content, '%PDF') !== 0) {
+        tm_sync_log('warning', 'Downloaded file does not appear to be a valid PDF', [
+            'filename' => $filename,
+            'first_chars' => substr($file_content, 0, 20)
+        ]);
+        // Still save it anyway, might be valid
+    }
+
+    // Write file to disk
+    $written = file_put_contents($file_path, $file_content);
+    if ($written === false) {
+        tm_sync_log('error', 'Failed to write PDF file to disk', [
+            'path' => $file_path,
+            'filename' => $filename
+        ]);
+        return false;
+    }
+
+    tm_sync_log('info', 'Successfully downloaded and saved PDF', [
+        'filename' => $filename,
+        'size' => strlen($file_content),
+        'path' => $file_path
+    ]);
+
+    return $file_path;
+}
+
+/**
+ * Get URL for a synced PDF file
+ * 
+ * @param string $filename Filename (relative to sync folder)
+ * @return string Full URL to the PDF file
+ */
+function tm_sync_get_pdf_url($filename) {
+    if (empty($filename)) {
+        return '';
+    }
+
+    // If already a full URL, return it
+    if (strpos($filename, 'http') === 0 || strpos($filename, '//') === 0) {
+        return $filename;
+    }
+
+    // If it's a relative path, convert to URL
+    $base_url = tm_sync_get_images_url();
+    return trailingslashit($base_url) . basename($filename);
+}
+
 ?>
