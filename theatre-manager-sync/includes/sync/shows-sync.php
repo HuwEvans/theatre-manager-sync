@@ -77,9 +77,10 @@ function tm_sync_process_show($item, $dry_run = false) {
             return '';
         };
         
-        // Note: Shows don't have image field in SharePoint yet, but keeping extract_url for future use
-
-        error_log('[SHOWS_DEBUG] Extracted fields: name=' . $name . ', author=' . $author . ', director=' . $director . ', season=' . $season_lookup_name);
+        // Extract SM Image URL
+        $sm_image_url = $extract_url($fields['SMImage'] ?? '');
+        
+        error_log('[SHOWS_DEBUG] Extracted fields: name=' . $name . ', author=' . $author . ', director=' . $director . ', season=' . $season_lookup_name . ', sm_image=' . substr($sm_image_url, 0, 60));
 
         tm_sync_log('debug', 'Extracted fields', ['sp_id' => $sp_id, 'name' => $name, 'author' => $author, 'director' => $director, 'season' => $season_lookup_name]);
 
@@ -135,6 +136,24 @@ function tm_sync_process_show($item, $dry_run = false) {
         update_post_meta($post_id, '_tm_show_start_date', $start_date);
         update_post_meta($post_id, '_tm_show_end_date', $end_date);
         update_post_meta($post_id, '_tm_show_program_url', $program_file_url);
+        
+        // Sync SM Image if present
+        if ($sm_image_url) {
+            $attachment_id = tm_sync_download_and_attach_image(
+                $post_id,
+                $sm_image_url,
+                '_tm_show_sm_image',
+                'show-sm-image-' . $sp_id,
+                'sm_image'
+            );
+            if ($attachment_id) {
+                error_log('[SHOWS_DEBUG] Successfully attached SM image: attachment_id=' . $attachment_id);
+            } else {
+                // Store URL as fallback if download failed
+                update_post_meta($post_id, '_tm_show_sm_image_url', $sm_image_url);
+                error_log('[SHOWS_DEBUG] Stored fallback URL for SM image');
+            }
+        }
         
         // Link to season by name lookup - find the season post with matching name
         if ($season_lookup_name) {
