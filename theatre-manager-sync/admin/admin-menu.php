@@ -15,10 +15,21 @@ add_action('admin_menu', 'tm_sync_register_admin_menu');
 function tm_sync_register_admin_menu() {
     // Top-level menu (parent)
     // Page slug: 'tm-sync' — we’ll reuse this slug for the "Auth" submenu to avoid a duplicate item.
-    $parent_hook = add_submenu_page(
-        'theatre-manager',
+    $parent_hook = add_menu_page(
         __('Theatre Manager Sync', 'theatre-manager-sync'),
-        __('Sync', 'theatre-manager-sync'),
+        __('TM Sync', 'theatre-manager-sync'),
+        TM_SYNC_CAP,
+        'theatre-manager-sync',
+        'tm_sync_admin_page',
+        'dashicons-update',
+        58
+    );
+
+    // Submenu: Manual Sync (main page)
+    add_submenu_page(
+        'theatre-manager-sync',
+        __('Theatre Manager Sync', 'theatre-manager-sync'),
+        __('Manual Sync', 'theatre-manager-sync'),
         TM_SYNC_CAP,
         'theatre-manager-sync',
         'tm_sync_admin_page'
